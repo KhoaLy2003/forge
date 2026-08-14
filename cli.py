@@ -29,6 +29,8 @@ EXPECTED_STRUCTURAL_PATHS = [
     Path(".gitignore"),
     Path("README.md"),
     Path("src/main/resources/application.yml"),
+    Path("src/main/resources/application-dev.yml"),
+    Path("src/main/resources/application-prod.yml"),
     Path("src/main/resources/db/changelog/db.changelog-master.xml"),
     Path("src/main/resources/db/changelog/001-create-example-table.sql"),
 ]
@@ -39,12 +41,47 @@ def expected_structural_paths(context: dict) -> list[Path]:
     package_path = context["package_path"]
     app_class_name = context["app_class_name"]
     java_root = Path("src/main/java") / package_path
+    test_root = Path("src/test/java") / package_path
+    common = java_root / "common"
+    example = java_root / "example"
     return [
         java_root / f"{app_class_name}Application.java",
-        java_root / "entity" / "Example.java",
-        java_root / "repository" / "ExampleRepository.java",
-        java_root / "service" / "ExampleService.java",
-        java_root / "controller" / "ExampleController.java",
+        common / "entity" / "BaseEntity.java",
+        common / "dto" / "ApiResponse.java",
+        common / "dto" / "PageResponse.java",
+        common / "dto" / "PaginationMeta.java",
+        common / "util" / "PaginationUtils.java",
+        common / "util" / "DateTimeUtils.java",
+        common / "util" / "SlugUtils.java",
+        common / "util" / "JsonUtils.java",
+        common / "exception" / "GlobalExceptionHandler.java",
+        common / "exception" / "ResourceNotFoundException.java",
+        common / "exception" / "ConflictException.java",
+        common / "exception" / "ErrorDetails.java",
+        common / "exception" / "ValidationErrorDetails.java",
+        common / "config" / "JpaAuditingConfig.java",
+        common / "config" / "OpenApiConfig.java",
+        common / "config" / "CorrelationIdFilter.java",
+        example / "entity" / "Example.java",
+        example / "entity" / "ExampleStatus.java",
+        example / "dto" / "CreateExampleRequest.java",
+        example / "dto" / "UpdateExampleRequest.java",
+        example / "dto" / "ExampleResponse.java",
+        example / "mapper" / "ExampleMapper.java",
+        example / "repository" / "ExampleRepository.java",
+        example / "service" / "ExampleService.java",
+        example / "service" / "ExampleServiceImpl.java",
+        example / "controller" / "ExampleController.java",
+        test_root / "common" / "util" / "PaginationUtilsTest.java",
+        test_root / "common" / "util" / "DateTimeUtilsTest.java",
+        test_root / "common" / "util" / "SlugUtilsTest.java",
+        test_root / "common" / "util" / "JsonUtilsTest.java",
+        test_root / "common" / "exception" / "GlobalExceptionHandlerTest.java",
+        test_root / "common" / "config" / "CorrelationIdFilterTest.java",
+        test_root / "example" / "repository" / "ExampleRepositoryTest.java",
+        test_root / "example" / "mapper" / "ExampleMapperTest.java",
+        test_root / "example" / "service" / "ExampleServiceImplTest.java",
+        test_root / "example" / "controller" / "ExampleControllerTest.java",
     ]
 
 

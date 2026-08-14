@@ -4,7 +4,7 @@ from pathlib import Path
 
 import jinja2
 
-_ENV = jinja2.Environment(undefined=jinja2.StrictUndefined)
+_ENV = jinja2.Environment(undefined=jinja2.StrictUndefined, keep_trailing_newline=True)
 
 
 class TargetExistsError(Exception):

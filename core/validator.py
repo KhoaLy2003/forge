@@ -26,11 +26,11 @@ def check_structure(target_dir: Path, expected_paths: list[Path]) -> ValidationR
 
 
 def run_compile(target_dir: Path, timeout: int = 300) -> ValidationResult:
-    """Run `mvn compile` in target_dir and report whether it succeeded."""
+    """Run mvn test-compile in target_dir (compiles main and test sources, without executing tests) and report whether it succeeded."""
     mvn_cmd = shutil.which("mvn") or "mvn"
     try:
         result = subprocess.run(
-            [mvn_cmd, "-q", "compile"],
+            [mvn_cmd, "-q", "test-compile"],
             cwd=target_dir,
             capture_output=True,
             text=True,
@@ -39,10 +39,10 @@ def run_compile(target_dir: Path, timeout: int = 300) -> ValidationResult:
     except FileNotFoundError:
         return ValidationResult(False, "mvn executable not found on PATH")
     except subprocess.TimeoutExpired:
-        return ValidationResult(False, f"mvn compile timed out after {timeout}s")
+        return ValidationResult(False, f"mvn test-compile timed out after {timeout}s")
 
     if result.returncode != 0:
         return ValidationResult(
-            False, "mvn compile failed", result.stdout + result.stderr
+            False, "mvn test-compile failed", result.stdout + result.stderr
         )
     return ValidationResult(True, "Compile check passed")

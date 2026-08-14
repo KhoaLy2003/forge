@@ -5,6 +5,7 @@ services:
       POSTGRES_DB: {{ artifact_id.replace('-', '_') }}
       POSTGRES_USER: forge
       POSTGRES_PASSWORD: forge
+      TZ: UTC
     ports:
       - "5432:5432"
     volumes:

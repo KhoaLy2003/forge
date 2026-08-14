@@ -1,7 +1,7 @@
 # tests/test_generation.py
 from pathlib import Path
 
-from cli import EXPECTED_STRUCTURAL_PATHS, TEMPLATE_DIR
+from cli import EXPECTED_STRUCTURAL_PATHS, TEMPLATE_DIR, expected_structural_paths
 from core.config_schema import ForgeConfig
 from core.renderer import render_tree
 from core.validator import check_structure, run_compile
@@ -19,6 +19,10 @@ def test_generated_project_passes_structural_and_compile_checks(tmp_path):
 
     structural = check_structure(config.target_dir, EXPECTED_STRUCTURAL_PATHS)
     assert structural.passed, structural.details
+
+    dynamic_paths = expected_structural_paths(config.template_context())
+    dynamic_structural = check_structure(config.target_dir, dynamic_paths)
+    assert dynamic_structural.passed, dynamic_structural.details
 
     compile_result = run_compile(config.target_dir)
     assert compile_result.passed, compile_result.details

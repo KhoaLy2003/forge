@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same branch/PR so only the latest run keeps going.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # tests/test_generation.py and tests/test_validator.py shell out to a real
+      # `mvn test-compile` (via core/validator.py's run_compile) against a rendered
+      # Spring Boot 4 project, so the runner needs a JDK. Maven itself ships
+      # preinstalled on ubuntu-latest GitHub-hosted runners.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      # Fail fast and clearly if Maven is ever missing, instead of surfacing as a
+      # confusing pytest failure further down.
+      - name: Verify Maven is available
+        run: mvn -version
+
+      - name: Install project
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest -v

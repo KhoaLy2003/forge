@@ -59,3 +59,18 @@ def test_run_compile_fails_for_broken_java_source(tmp_path):
 
     assert result.passed is False
     assert result.details
+
+
+def test_run_compile_fails_for_broken_java_test_source(tmp_path):
+    (tmp_path / "pom.xml").write_text(MINIMAL_POM, encoding="utf-8")
+    main_dir = tmp_path / "src" / "main" / "java" / "com" / "example"
+    main_dir.mkdir(parents=True)
+    (main_dir / "Hello.java").write_text(MINIMAL_JAVA, encoding="utf-8")
+    test_dir = tmp_path / "src" / "test" / "java" / "com" / "example"
+    test_dir.mkdir(parents=True)
+    (test_dir / "HelloTest.java").write_text("this is not valid java", encoding="utf-8")
+
+    result = run_compile(tmp_path)
+
+    assert result.passed is False
+    assert result.details

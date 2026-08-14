@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.2.0 — 2026-08-14
+
+Template rewrite from a flat layer-based package to a feature-based
+package structure, plus supporting Forge tooling and documentation changes.
+
+### Template rewrite
+
+- Replaced the flat `controller/service/repository/entity` package with
+  `common/` (cross-cutting infrastructure) and `example/` (a self-contained
+  domain slice with its own `controller/dto/entity/mapper/repository/service`
+  subpackages)
+- Added `common/entity/BaseEntity`: UUID primary key, `created_at`/`updated_at`
+  timestamps populated via Spring Data JPA auditing, `@Version`-based
+  optimistic locking, and soft delete via a `deleted_at` column (no automatic
+  query filtering — repositories must expose `*AndDeletedAtIsNull` methods)
+- Added `common/dto/ApiResponse`, `PageResponse`, and `PaginationMeta` as a
+  standard response envelope, plus request/response DTOs and a MapStruct
+  mapper (`ExampleMapper`) for the `example` slice, replacing direct
+  entity exposure
+- Added `common/exception/GlobalExceptionHandler` for centralized error
+  handling, with `ResourceNotFoundException`, `ConflictException`,
+  `ErrorDetails`, and `ValidationErrorDetails`
+- Added `common/config/CorrelationIdFilter` for correlation-ID-based request
+  logging, `JpaAuditingConfig` to enable the auditing listener used by
+  `BaseEntity`, and `OpenApiConfig`
+- Added `common/util/DateTimeUtils`, `SlugUtils`, and `JsonUtils` utility
+  classes, alongside the existing `PaginationUtils`
+- Added springdoc-openapi (Swagger UI) and Spring Boot Actuator dependencies
+  for API documentation and operational endpoints
+- Fixed a startup bug where PGJDBC/Liquibase failed to connect on hosts whose
+  OS timezone isn't present in the postgres image's tzdata (e.g.
+  `Asia/Saigon`): the generated `Application` class now pins the JVM default
+  timezone to UTC in a static initializer that runs before any JDBC
+  connection is opened
+- Split `application.yml` into base config plus `application-dev.yml` and
+  `application-prod.yml` profiles
+- Added Testcontainers-backed repository tests (`ExampleRepositoryTest`)
+  against a real PostgreSQL container, plus unit/slice tests for the
+  controller, service, mapper, exception handler, correlation-ID filter, and
+  utility classes
+- Reorganized `pom.xml`: introduced versioned properties
+  (`mapstruct.version`, `springdoc.version`, `testcontainers-bom.version`,
+  `spring-boot-liquibase.version`), added a `testcontainers-bom` import in
+  `dependencyManagement` (not otherwise managed by
+  `spring-boot-starter-parent:4.0.0`), and grouped dependencies into
+  documented blocks (Web & Validation, Persistence & Migration,
+  Observability, Boilerplate reduction, API Documentation, Testing)
+- Added production-level Javadoc throughout the template's Java classes
+
+### Documentation
+
+- Rewrote the generated project's `README.md` to a production-standard doc
+  covering tech stack, prerequisites, project structure (`common/` vs
+  `example/` and when to mirror the six subpackages), and getting-started
+  steps
+
+### Forge tooling
+
+- `core/validator.py`'s `run_compile` now runs `mvn test-compile` instead of
+  `mvn compile`, so generated test sources are compile-checked as well as
+  main sources
+
 ## 0.1.0 — 2026-08-13
 
 Initial release.

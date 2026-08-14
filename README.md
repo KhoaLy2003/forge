@@ -6,11 +6,23 @@ old project by hand.
 
 ## What it generates
 
-- Java 21, Spring Boot 4, Maven
-- Liquibase migrations
+- Java 21, Spring Boot 4, Maven, PostgreSQL 16
+- A feature-based package structure:
+  - `common/` — cross-cutting infrastructure: a `BaseEntity` (UUID id, audit
+    timestamps, optimistic locking, soft delete), the `ApiResponse`/
+    `PageResponse` response envelope, global exception handling, a
+    correlation-ID filter, OpenAPI config, and shared utilities
+  - `example/` — one domain slice (entity/DTO/mapper/repository/service/
+    controller) wired end-to-end as a pattern to copy for new features
+- DTOs with Bean Validation and MapStruct mapping, so entities are never
+  exposed directly over HTTP
+- Liquibase Formatted SQL migrations
 - docker-compose for local PostgreSQL
-- A layered package structure (`controller/`, `service/`, `repository/`,
-  `entity/`) with one example entity wired end-to-end (full CRUD)
+- Spring Boot Actuator (health/info) and springdoc-openapi (Swagger UI)
+- A test suite covering unit tests (Mockito), a `@WebMvcTest` slice, and a
+  Testcontainers-backed repository test — running the generated project's own
+  `mvn test` requires Docker, but Forge's own validation only runs
+  `mvn test-compile`, which doesn't
 
 ## Install
 
