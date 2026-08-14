@@ -1,0 +1,20 @@
+target/
+.idea/
+*.class
+*.log
+
+# Env files
+.env
+
+# IDE files
+.vscode/
+*.iml
+
+# Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# Spring Initializr boilerplate
+HELP.md
+
+# OS files
+.DS_Store
