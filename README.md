@@ -1,61 +1,32 @@
 # Forge
 
-Forge scaffolds a ready-to-build Java + Spring Boot 4 + PostgreSQL project
-from a single template, so starting a new service is faster than copying an
-old project by hand.
+Two scaffolding CLIs that generate a ready-to-build project instead of a
+bare skeleton, so starting new work is faster than copying an old project
+by hand.
 
-## What it generates
+- **[`backend/`](backend/README.md)** — Forge: Java 21 + Spring Boot 4 +
+  PostgreSQL project generator.
+- **`frontend/`** — Forge Web: React + TypeScript + Vite + Shadcn project
+  generator. Design finished (see
+  [`docs/superpowers/specs/2026-08-14-frontend-generator-design.md`](docs/superpowers/specs/2026-08-14-frontend-generator-design.md)),
+  implementation not yet started.
 
-- Java 21, Spring Boot 4, Maven, PostgreSQL 16
-- A feature-based package structure:
-  - `common/` — cross-cutting infrastructure: a `BaseEntity` (UUID id, audit
-    timestamps, optimistic locking, soft delete), the `ApiResponse`/
-    `PageResponse` response envelope, global exception handling, a
-    correlation-ID filter, OpenAPI config, and shared utilities
-  - `example/` — one domain slice (entity/DTO/mapper/repository/service/
-    controller) wired end-to-end as a pattern to copy for new features
-- DTOs with Bean Validation and MapStruct mapping, so entities are never
-  exposed directly over HTTP
-- Liquibase Formatted SQL migrations
-- docker-compose for local PostgreSQL
-- Spring Boot Actuator (health/info) and springdoc-openapi (Swagger UI)
-- A test suite covering unit tests (Mockito), a `@WebMvcTest` slice, and a
-  Testcontainers-backed repository test — running the generated project's own
-  `mvn test` requires Docker, but Forge's own validation only runs
-  `mvn test-compile`, which doesn't
+Both share the same wizard → preview → render → validate pipeline shape
+and `core/` module layout — see [CLAUDE.md](CLAUDE.md) for the full
+architecture rundown.
 
-## Install
+## Setup
 
 ```bash
 py -m venv .venv
-.venv\Scripts\pip install -e ".[dev]"
+.venv\Scripts\pip install -e "./backend[dev]"
 ```
 
-## Usage
+See each package's own README for usage.
 
-```bash
-.venv\Scripts\forge new
-```
+## Shared docs
 
-Run without flags to be walked through an interactive wizard (project name,
-target path, group id, artifact id). Any flag you pass skips its prompt:
-
-```bash
-.venv\Scripts\forge new --name my-service --path C:\projects --group-id com.example --artifact-id my-service
-```
-
-Forge shows a preview of the file tree it's about to write and asks for
-confirmation before touching disk. After generation it runs a structural
-check and `mvn compile` against the new project, and reports next steps.
-
-See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for command details, and
-[CHANGELOG.md](CHANGELOG.md) for version history.
-
-## Development
-
-```bash
-.venv\Scripts\pytest -v
-```
-
-The design spec and implementation plan live under
-`docs/superpowers/specs/` and `docs/superpowers/plans/`.
+- [`docs/DESIGN.md`](docs/DESIGN.md) — the design-token system `frontend/`'s
+  generated theme is seeded from.
+- `docs/superpowers/specs/`, `docs/superpowers/plans/` — design specs and
+  implementation plans for both packages.
