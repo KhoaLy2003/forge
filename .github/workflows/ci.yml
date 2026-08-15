@@ -75,3 +75,110 @@ jobs:
       - name: Forge summary
         if: success()
         run: .github/workflows/forge-summary.sh frontend
+
+  codeql-python:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          build-mode: none
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"
+
+  codeql-javascript:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # No plain JS/TS source lives here — this scans the Jinja-templated
+      # React/TS scaffold under frontend/forge_web/templates/base. Files with
+      # {{ }} placeholders in JSX/TS aren't valid syntax; CodeQL skips what it
+      # can't parse rather than failing the job, so this is safe but expect
+      # sparse findings until real (non-templated) JS/TS exists in the repo.
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  trivy-fs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          output: trivy-report.txt
+          severity: CRITICAL,HIGH
+          exit-code: 1
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "### Trivy filesystem scan"
+            echo '```'
+            cat trivy-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: always
+          summary: true
+
+  zizmor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install zizmor
+        run: pip install zizmor
+
+      - name: Run zizmor
+        run: |
+          {
+            echo "### Zizmor findings"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          zizmor --format plain .github/workflows/ | tee -a "$GITHUB_STEP_SUMMARY"
+          status=${PIPESTATUS[0]}
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+        shell: bash
