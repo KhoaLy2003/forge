@@ -194,7 +194,7 @@ jobs:
             echo "### Zizmor findings"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          zizmor --format plain .github/workflows/ | tee -a "$GITHUB_STEP_SUMMARY"
+          zizmor --format plain --color never .github/workflows/ | tee -a "$GITHUB_STEP_SUMMARY"
           status=${PIPESTATUS[0]}
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
