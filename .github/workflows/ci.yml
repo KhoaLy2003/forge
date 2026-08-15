@@ -213,6 +213,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install pytest
+        run: pip install pytest
+
       - name: Run scripts/ tests
         run: python -m pytest scripts/ -v
 
