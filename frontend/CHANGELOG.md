@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+- Generated projects now ship a GitHub Actions CI workflow
+  (`.github/workflows/ci.yml`): `npm install && npm run build` (typecheck +
+  build; no separate test step, since the scaffold has no test runner
+  configured), CodeQL (`javascript-typescript`), a Trivy filesystem scan run
+  after `npm install` (so it resolves exact versions via
+  `package-lock.json`), PR-only dependency review, and zizmor linting of the
+  workflow file itself — all actions pinned to commit hashes with
+  `persist-credentials: false`
+- The generated README notes the one-time setup step (enabling
+  Dependabot/vulnerability alerts) the `dependency-review` job requires on
+  the user's own GitHub repo
+- `EXPECTED_STRUCTURAL_PATHS` updated to include the new workflow file
+
 ## 0.1.0 — 2026-08-15
 
 Initial release.

@@ -51,6 +51,35 @@ CI (`.github/workflows/ci.yml`) runs the same suite on every push and PR to
    the PR.
 4. Open a PR with a clear description of what changed and why.
 
+## Changelog
+
+Each package's `CHANGELOG.md` keeps a permanent `## [Unreleased]` section at
+the top. If your PR changes behavior, add a bullet there — **don't** invent a
+version number or date; that happens once, at release time. This keeps
+concurrent PRs from fighting over "what's the next version" on the same
+lines (a `merge=union` `.gitattributes` entry also lets simultaneous
+`[Unreleased]` additions merge automatically in the common case).
+
+CI (`changelog-check` in `ci.yml`) fails a PR if a package's `CHANGELOG.md`
+top released-version heading doesn't match its `pyproject.toml` version — if
+you see that failure, someone (possibly you) forgot to run the release
+script below, or hand-edited a version heading directly.
+
+### Cutting a release
+
+Don't hand-edit the version heading or `pyproject.toml`'s version — run:
+
+```bash
+python scripts/prepare_release.py --package backend --version 0.3.0
+```
+
+This renames `## [Unreleased]` to `## 0.3.0 — <today>`, inserts a fresh
+empty `[Unreleased]` section above it, and bumps `pyproject.toml` — all in
+one atomic edit, so the two can't drift apart. Review the diff and commit/PR
+it through the normal flow, same as any other change. Once merged, trigger
+the `Release` workflow (`.github/workflows/release.yml`) with the matching
+version.
+
 ## Reporting bugs / requesting features
 
 Open a GitHub issue. Include the CLI (`forge` or `forge-web`), the command
