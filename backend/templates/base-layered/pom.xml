@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>4.0.0</version>
+    <version>4.0.7</version>
     <relativePath/>
   </parent>
 
@@ -25,6 +25,9 @@
     <!-- Must always match the parent's Spring Boot version exactly, so it tracks
          ${project.parent.version} instead of a second hardcoded literal. -->
     <spring-boot-liquibase.version>${project.parent.version}</spring-boot-liquibase.version>
+    <!-- Overrides spring-boot-starter-parent:4.0.7's managed 42.7.11, which is
+         still vulnerable to CVE-2026-54291 (fixed in 42.7.12). -->
+    <postgresql.version>42.7.12</postgresql.version>
   </properties>
 
   <!-- spring-boot-starter-parent:4.0.0 does not manage testcontainers.version in this environment
