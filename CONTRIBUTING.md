@@ -80,6 +80,13 @@ it through the normal flow, same as any other change. Once merged, trigger
 the `Release` workflow (`.github/workflows/release.yml`) with the matching
 version.
 
+The script refuses to run against a stale local checkout (i.e. `git pull`
+first) — otherwise a just-merged PR's `[Unreleased]` entry you don't have
+locally yet can end up silently misfiled under the new version heading once
+you sync back with `main`, instead of staying in the fresh `[Unreleased]`
+section. Pass `--skip-freshness-check` if you're offline and have already
+verified you're current by other means.
+
 ## Reporting bugs / requesting features
 
 Open a GitHub issue. Include the CLI (`forge` or `forge-web`), the command
