@@ -1,4 +1,5 @@
 import shutil
+import subprocess
 
 import pytest
 
@@ -14,6 +15,25 @@ from pathlib import Path
 
 NPM_AVAILABLE = shutil.which("npm") is not None
 NPX_AVAILABLE = shutil.which("npx") is not None
+
+
+def _install_typescript(tmp_path):
+    # Without a locally installed `typescript`, `npx tsc` falls through to
+    # npm's auto-install-on-missing-command behavior, which installs a
+    # same-named-but-unrelated `tsc` package instead of `typescript` (the
+    # package that actually provides the tsc binary).
+    (tmp_path / "package.json").write_text(
+        '{"name": "typecheck-fixture", "version": "1.0.0", "private": true}',
+        encoding="utf-8",
+    )
+    npm_cmd = shutil.which("npm") or "npm"
+    subprocess.run(
+        [npm_cmd, "install", "typescript", "--no-audit", "--no-fund"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_check_structure_passes_when_all_expected_files_exist(tmp_path):
@@ -63,6 +83,7 @@ def test_run_build_fails_when_no_package_json(tmp_path):
 
 @pytest.mark.skipif(not NPX_AVAILABLE, reason="npx not on PATH")
 def test_run_typecheck_passes_for_valid_typescript(tmp_path):
+    _install_typescript(tmp_path)
     (tmp_path / "tsconfig.json").write_text(
         '{"compilerOptions": {"strict": true, "noEmit": true}}', encoding="utf-8"
     )
@@ -75,6 +96,7 @@ def test_run_typecheck_passes_for_valid_typescript(tmp_path):
 
 @pytest.mark.skipif(not NPX_AVAILABLE, reason="npx not on PATH")
 def test_run_typecheck_fails_for_type_error(tmp_path):
+    _install_typescript(tmp_path)
     (tmp_path / "tsconfig.json").write_text(
         '{"compilerOptions": {"strict": true, "noEmit": true}}', encoding="utf-8"
     )
