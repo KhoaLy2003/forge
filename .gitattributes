@@ -1,0 +1,6 @@
+# CHANGELOG.md entries are pure line-additions under `## [Unreleased]` in the
+# common case (concurrent PRs each appending their own bullets). The union
+# merge driver takes both sides' additions instead of flagging a manual
+# conflict, as long as neither side edits the same existing line.
+backend/CHANGELOG.md merge=union
+frontend/CHANGELOG.md merge=union

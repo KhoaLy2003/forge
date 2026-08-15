@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+- Generated projects now ship a GitHub Actions CI workflow
+  (`.github/workflows/ci.yml`): `mvn verify` (build, full Testcontainers-backed
+  test suite, Spotless format check), CodeQL (`java-kotlin`, manual build
+  mode), a Trivy filesystem scan of `pom.xml`, PR-only dependency review, and
+  zizmor linting of the workflow file itself — all actions pinned to commit
+  hashes with `persist-credentials: false`
+- The generated README notes the one-time setup step (enabling
+  Dependabot/vulnerability alerts) the `dependency-review` job requires on
+  the user's own GitHub repo
+- `EXPECTED_STRUCTURAL_PATHS` updated to include the new workflow file
+
 ## 0.2.0 — 2026-08-14
 
 Template rewrite from a flat layer-based package to a feature-based
