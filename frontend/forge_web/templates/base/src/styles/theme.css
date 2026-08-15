@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens transcribed from docs/DESIGN.md (Airbnb-derived design-token
+ * analysis). This file is the single source of truth for every color,
+ * typography, spacing, radius, and shadow value used across the app —
+ * no other .tsx/.css file in this project may hardcode a hex/rgb/px literal.
+ *
+ * Dark mode is intentionally not implemented — DESIGN.md notes Airbnb has no
+ * public-web dark mode. Elevation is capped at one shadow tier (--shadow-1).
+ */
+@theme {
+  /* ---- Colors: Brand & Accent ---- */
+  --color-primary: #ff385c;
+  --color-primary-active: #e00b41;
+  --color-primary-disabled: #ffd1da;
+  --color-luxe: #460479;
+  --color-plus: #92174d;
+
+  /* ---- Colors: Surface ---- */
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f7f7f7;
+  --color-surface-strong: #f2f2f2;
+
+  /* ---- Colors: Hairlines & Borders ---- */
+  --color-hairline: #dddddd;
+  --color-hairline-soft: #ebebeb;
+  --color-border-strong: #c1c1c1;
+
+  /* ---- Colors: Text ---- */
+  --color-ink: #222222;
+  --color-body: #3f3f3f;
+  --color-muted: #6a6a6a;
+  --color-muted-soft: #929292;
+  --color-on-primary: #ffffff;
+
+  /* ---- Colors: Semantic ---- */
+  --color-error-text: #c13515;
+  --color-error-text-hover: #b32505;
+  --color-legal-link: #428bff;
+
+  /* ---- Colors: Scrim (opacity applied at call site, e.g. bg-scrim/50) ---- */
+  --color-scrim: #000000;
+
+  /* ---- Typography: font family ---- */
+  --font-sans: Inter, -apple-system, system-ui, Roboto, "Helvetica Neue", sans-serif;
+
+  /* ---- Typography: sizes used by this template's components ---- */
+  --text-body-md: 16px;
+  --text-body-sm: 14px;
+  --text-caption: 14px;
+  --text-button-md: 16px;
+  --text-button-sm: 14px;
+  --text-link: 14px;
+  --text-title-sm: 16px;
+  --text-display-sm: 20px;
+
+  /* ---- Spacing system (4px base, 2px micro-step) ---- */
+  --spacing-xxs: 2px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-base: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+  --spacing-section: 64px;
+
+  /* ---- Radius scale (4 steps only) ---- */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+
+  /* ---- Elevation: the system's single shadow tier ---- */
+  --shadow-1: rgba(0, 0, 0, 0.02) 0 0 0 1px, rgba(0, 0, 0, 0.04) 0 2px 6px 0,
+    rgba(0, 0, 0, 0.1) 0 4px 8px 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}

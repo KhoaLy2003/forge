@@ -6,10 +6,8 @@ by hand.
 
 - **[`backend/`](backend/README.md)** — Forge: Java 21 + Spring Boot 4 +
   PostgreSQL project generator.
-- **`frontend/`** — Forge Web: React + TypeScript + Vite + Shadcn project
-  generator. Design finished (see
-  [`docs/superpowers/specs/2026-08-14-frontend-generator-design.md`](docs/superpowers/specs/2026-08-14-frontend-generator-design.md)),
-  implementation not yet started.
+- **[`frontend/`](frontend/README.md)** — Forge Web: React + TypeScript +
+  Vite + Shadcn project generator.
 
 Both share the same wizard → preview → render → validate pipeline shape
 and `core/` module layout — see [CLAUDE.md](CLAUDE.md) for the full
@@ -20,6 +18,7 @@ architecture rundown.
 ```bash
 py -m venv .venv
 .venv\Scripts\pip install -e "./backend[dev]"
+.venv\Scripts\pip install -e "./frontend[dev]"
 ```
 
 See each package's own README for usage.

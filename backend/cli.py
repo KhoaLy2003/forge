@@ -1,6 +1,7 @@
 """Forge's Typer entry point: wires the wizard, preview, renderer, and validator into `forge new`."""
 
 import shutil
+import sys
 import traceback
 from pathlib import Path
 
@@ -155,6 +156,12 @@ def new(
 
 def main():
     """Console-script entry point."""
+    # The tree preview uses Unicode box-drawing characters; Windows consoles
+    # commonly default to a non-UTF-8 codepage (e.g. cp1252), which raises
+    # UnicodeEncodeError on print() otherwise.
+    for stream in (sys.stdout, sys.stderr):
+        if getattr(stream, "encoding", None) and stream.encoding.lower() != "utf-8":
+            stream.reconfigure(encoding="utf-8", errors="replace")
     app()
 
 

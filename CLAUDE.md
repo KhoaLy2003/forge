@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repo is a monorepo of two independent scaffolding CLIs that share the same wizard → preview → render → validate philosophy, each generating a ready-to-build project instead of a bare skeleton:
 
 - **`backend/`** — Forge: a Python CLI (Typer-based) that scaffolds a Java + Spring Boot 4 + PostgreSQL project from a single Jinja2 template. Running `forge new` generates a complete, compiling Maven project.
-- **`frontend/`** — Forge Web: a Python CLI generating a React + TypeScript + Vite + Shadcn project. See `docs/superpowers/specs/2026-08-14-frontend-generator-design.md` for its design (implementation not yet started).
+- **`frontend/`** — Forge Web: a Python CLI (Typer-based) that scaffolds a React + TypeScript + Vite + Tailwind v4 + Shadcn/ui project from a single Jinja2 template. Running `forge-web new` generates a complete, buildable dashboard app.
 
 Shared, repo-wide docs (design tokens, specs, plans) live under `docs/`. Each package keeps its own README, QUICK_REFERENCE, and CHANGELOG.
 
@@ -54,7 +54,20 @@ The pipeline in `backend/cli.py`'s `new` command is the whole system: **wizard �
 
 ## Architecture — `frontend/` (Forge Web)
 
-Not yet implemented. Mirrors the same wizard → preview → render → validate pipeline and `core/` module shape as `backend/`, generating a Vite + React + TypeScript + Shadcn project instead. Full design — tech stack, curated component set, theming (derived from `docs/DESIGN.md`), mock/real API client pattern, env-var conventions — is in `docs/superpowers/specs/2026-08-14-frontend-generator-design.md`.
+Mirrors the same wizard → preview → render → validate pipeline and `core/` module shape as `backend/`, generating a Vite + React + TypeScript + Shadcn project instead — no code is shared between the two packages, but the module names/responsibilities intentionally match. Unlike `backend/` (which installs bare top-level `cli`/`core` modules), everything here lives under a namespaced `forge_web` package — `forge_web/cli.py`, `forge_web/core/*.py`, `forge_web/templates/base/` — specifically so both packages can be `pip install -e`'d editable into the *same* venv without one's `import cli`/`import core` shadowing the other's (this bit a real user before the rename: `forge-web`'s console script was silently resolving to `backend/cli.py`, so `--api-base-url` didn't exist). If `backend/` is ever restructured, keep this asymmetry — never give either package a bare top-level module name again.
+
+1. **`forge_web/core/config_schema.py`** (`ForgeWebConfig`) — validates `project_name`/`target_path`/`api_base_url` and derives `app_display_name`. `template_context()` returns exactly `{project_name, app_display_name, api_base_url}`.
+2. **`forge_web/core/renderer.py`** — the same custom Jinja2 tree renderer as `backend/core/renderer.py`'s (`resolve_tree`/`render_tree`, `TargetExistsError`).
+3. **`forge_web/core/validator.py`** — `check_structure`, `run_build` (`npm install && npm run build`), `run_typecheck` (`npx tsc --noEmit`), and `check_no_hardcoded_design_values` (a grep-based check, scoped to `target_dir/src`, that fails if any hex color literal appears outside `styles/theme.css`).
+4. **`forge_web/cli.py`** — wires the pipeline together; after a successful render it also copies the rendered `.env.example` to `.env` so the generated project is immediately runnable with the user's actual answers baked in.
+
+### The template itself
+
+`forge_web/templates/base/` is a full Vite + React + TypeScript + Tailwind v4 + Shadcn/ui project: a curated component set (button, input, card, table, data-table, tabs, select, dialog, alert-dialog, dropdown-menu, toast, form, avatar, badge, skeleton), a sample CRUD dashboard (`/`) and component showcase (`/components`) wired end-to-end, static pages (404/error/loading/empty-state), and a mock/real API client switched by `VITE_API_MODE`. Every color/typography/spacing/radius/shadow value in the template is a CSS custom property in `styles/theme.css`, transcribed from `docs/DESIGN.md`'s prose/tables (that doc currently has no machine-readable front matter — read its Colors/Typography/Layout/Elevation sections directly). Because Jinja2's `{{ }}` delimiters collide with JSX's double-curly inline-object-literal props (e.g. `style={{ ... }}`, `toastOptions={{ ... }}`), any new template file using that JSX pattern must wrap the literal in `{% raw %}...{% endraw %}` — see `components/ui/form.tsx` and `sonner.tsx` for examples.
+
+### Testing approach
+
+`tests/test_generation.py` is the end-to-end test: it builds a real `ForgeWebConfig`, renders the actual template into a tmp dir, and runs `npm install`, `npm run build`, `npx tsc --noEmit`, and the design-token check for real — this requires `npm`/`npx` on PATH (no Docker needed, unlike `backend/`'s Maven-based checks). Other test files unit-test each `forge_web/core/` module in isolation.
 
 ## Design docs
 
