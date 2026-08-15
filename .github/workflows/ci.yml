@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,8 +21,9 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
+          cache-dependency-path: backend/pyproject.toml
 
-      # tests/test_generation.py and tests/test_validator.py shell out to a real
+      # backend/tests/test_generation.py and test_validator.py shell out to a real
       # `mvn test-compile` (via core/validator.py's run_compile) against a rendered
       # Spring Boot 4 project, so the runner needs a JDK. Maven itself ships
       # preinstalled on ubuntu-latest GitHub-hosted runners.
@@ -37,7 +38,40 @@ jobs:
         run: mvn -version
 
       - name: Install project
-        run: pip install -e ".[dev]"
+        run: pip install -e "./backend[dev]"
 
       - name: Run tests
-        run: pytest -v
+        run: pytest backend/tests -v
+
+      - name: Forge summary
+        if: success()
+        run: .github/workflows/forge-summary.sh backend
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: frontend/pyproject.toml
+
+      # frontend/tests/test_generation.py shells out to a real `npm install`,
+      # `npm run build`, and `npx tsc --noEmit` against a rendered Vite project, so
+      # the runner needs Node/npm on PATH. No separate npm install step is needed
+      # here - the test itself drives npm against the generated project.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install project
+        run: pip install -e "./frontend[dev]"
+
+      - name: Run tests
+        run: pytest frontend/tests -v
+
+      - name: Forge summary
+        if: success()
+        run: .github/workflows/forge-summary.sh frontend
