@@ -121,6 +121,16 @@ mvn test-compile
 Compiles all main and test sources without running anything, so it does not
 need Docker.
 
+## Continuous Integration
+
+This project ships with a GitHub Actions workflow
+(`.github/workflows/ci.yml`) that builds and tests on every push/PR to
+`main`, plus CodeQL, Trivy filesystem scanning, dependency review, and
+zizmor workflow linting. The `dependency-review` job requires you to enable
+Dependabot on your GitHub repo first — go to **Settings → Code security** and
+turn on **Dependency graph** and **Dependabot alerts** — otherwise that job
+will fail with a permissions/configuration error.
+
 ## Code Style
 
 Formatting is enforced with [Spotless](https://github.com/diffplug/spotless)

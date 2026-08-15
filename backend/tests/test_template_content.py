@@ -4,6 +4,7 @@ TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "base-layered"
 
 EXPECTED_TEMPLATE_FILES = [
     "pom.xml",
+    ".github/workflows/ci.yml",
     "docker-compose.yml",
     ".gitignore",
     "README.md",

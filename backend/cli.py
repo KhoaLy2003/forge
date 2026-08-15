@@ -26,6 +26,7 @@ TEMPLATE_DIR = Path(__file__).parent / "templates" / "base-layered"
 
 EXPECTED_STRUCTURAL_PATHS = [
     Path("pom.xml"),
+    Path(".github/workflows/ci.yml"),
     Path("docker-compose.yml"),
     Path(".gitignore"),
     Path("README.md"),
