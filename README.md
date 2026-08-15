@@ -1,5 +1,8 @@
 # Forge
 
+[![CI](https://github.com/KhoaLy2003/forge/actions/workflows/ci.yml/badge.svg)](https://github.com/KhoaLy2003/forge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Two scaffolding CLIs that generate a ready-to-build project instead of a
 bare skeleton, so starting new work is faster than copying an old project
 by hand.
@@ -29,3 +32,13 @@ See each package's own README for usage.
   generated theme is seeded from.
 - `docs/superpowers/specs/`, `docs/superpowers/plans/` — design specs and
   implementation plans for both packages.
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for dev
+setup, how to run each package's tests, and PR expectations. For the
+architecture rundown behind either CLI, see [CLAUDE.md](CLAUDE.md).
+
+## License
+
+Forge is licensed under the [MIT License](LICENSE).

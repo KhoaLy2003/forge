@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Forge - scaffolding CLIs for Spring Boot and React</title>
+  <meta name="description" content="Forge and Forge Web generate ready-to-build Spring Boot 4 + PostgreSQL and React + TypeScript + Vite projects from a single template, so starting new work is faster than copying an old project by hand." />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    (function () {
+      var saved = localStorage.getItem("forge-theme");
+      if (saved === "light" || saved === "dark") {
+        document.documentElement.setAttribute("data-theme", saved);
+      }
+    })();
+  </script>
+</head>
+<body>
+
+  <nav class="site-nav">
+    <div class="wrap">
+      <a class="brand" href="#top">
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="1" y="1" width="22" height="22" rx="6" fill="var(--btn-primary-bg)" />
+          <text x="12" y="16.5" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, monospace" font-size="12" font-weight="700" fill="#ffffff">F</text>
+        </svg>
+        Forge
+      </a>
+      <div class="nav-links">
+        <a href="#clis">CLIs</a>
+        <a href="#install">Install</a>
+        <a href="#how-it-works">How it works</a>
+        <a class="gh-link" href="https://github.com/KhoaLy2003/forge">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+          GitHub
+        </a>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM8 0a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V.75A.75.75 0 0 1 8 0Zm0 12.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 12.5ZM2.343 2.343a.75.75 0 0 1 1.061 0l1.06 1.061a.75.75 0 0 1-1.06 1.06l-1.06-1.06a.75.75 0 0 1 0-1.06Zm9.193 9.193a.75.75 0 0 1 1.06 0l1.061 1.06a.75.75 0 0 1-1.06 1.061l-1.061-1.06a.75.75 0 0 1 0-1.061ZM0 8a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8Zm12.5 0a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1-.75-.75ZM2.343 13.657a.75.75 0 0 1 0-1.061l1.06-1.06a.75.75 0 1 1 1.061 1.06l-1.06 1.061a.75.75 0 0 1-1.061 0Zm9.193-9.193a.75.75 0 0 1 0-1.06l1.061-1.061a.75.75 0 1 1 1.06 1.06l-1.06 1.061a.75.75 0 0 1-1.061 0Z"/></svg>
+          <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.598 1.591a.75.75 0 0 1 .785.175 7 7 0 1 1-9.996 9.996.75.75 0 0 1 .961-.96 5.5 5.5 0 0 0 7.663-7.663.75.75 0 0 1 .587-1.548Z"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <div class="wrap">
+      <h1>Two scaffolding CLIs that generate a ready-to-build project.</h1>
+      <p class="lede">
+        Forge generates a full Java 21 + Spring Boot 4 + PostgreSQL service.
+        Forge Web generates a full React + TypeScript + Vite + Shadcn/ui
+        dashboard. Both walk you through a wizard, preview the file tree, and
+        validate the result by actually compiling or building it, so starting
+        new work is faster than copying an old project by hand.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://github.com/KhoaLy2003/forge">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>
+          View on GitHub
+        </a>
+        <a class="btn btn-secondary" href="#install">Read the install steps</a>
+      </div>
+    </div>
+  </header>
+
+  <section id="clis">
+    <div class="wrap">
+      <h2>One pipeline, two targets</h2>
+      <p class="section-lede">
+        Both CLIs share the same wizard, preview, render, and validate
+        pipeline shape, applied to a different stack.
+      </p>
+      <div class="cli-grid">
+        <div class="cli-card">
+          <h3>Forge</h3>
+          <p class="cli-tagline">backend/ &middot; Java + Spring Boot 4 + PostgreSQL</p>
+          <ul>
+            <li>Java 21, Spring Boot 4, Maven, PostgreSQL 16</li>
+            <li>Feature-based packages, a shared <code>common/</code> layer, and one end-to-end <code>example/</code> slice to copy</li>
+            <li>Liquibase migrations, docker-compose for local Postgres</li>
+            <li>Actuator, springdoc-openapi, and a Testcontainers-backed test suite</li>
+          </ul>
+          <code class="cmd">forge new</code>
+        </div>
+        <div class="cli-card">
+          <h3>Forge Web</h3>
+          <p class="cli-tagline">frontend/ &middot; React + TypeScript + Vite + Shadcn/ui</p>
+          <ul>
+            <li>React 18, TypeScript, Vite, React Router, Tailwind v4</li>
+            <li>A curated Shadcn component set, themed entirely from design tokens</li>
+            <li>A sample CRUD dashboard wired to a mock or real API client</li>
+            <li>Static 404, error, loading, and empty-state pages included</li>
+          </ul>
+          <code class="cmd">forge-web new</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2>Install</h2>
+      <p class="section-lede">
+        Both packages install editable into a single virtual environment.
+      </p>
+      <pre class="install"><code><span class="comment"># from the repo root</span>
+py -m venv .venv
+.venv\Scripts\pip install -e "./backend[dev]"
+.venv\Scripts\pip install -e "./frontend[dev]"
+
+<span class="comment"># then run either CLI</span>
+.venv\Scripts\forge new
+.venv\Scripts\forge-web new</code></pre>
+    </div>
+  </section>
+
+  <section id="how-it-works">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <p class="section-lede">
+        Every generated project passes through the same four stages before
+        it reaches disk.
+      </p>
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <div class="step-name">Wizard</div>
+          <div class="step-desc">Prompts for anything missing from the CLI flags, validating as it goes.</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-name">Preview</div>
+          <div class="step-desc">Renders the resolved file tree and asks for confirmation before writing anything.</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-name">Render</div>
+          <div class="step-desc">Writes the templated project, refusing to overwrite an existing target directory.</div>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-name">Validate</div>
+          <div class="step-desc">Checks the generated structure and actually compiles or builds the result.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <span>MIT licensed. &copy; 2026 khoaly.</span>
+      <div class="footer-links">
+        <a href="https://github.com/KhoaLy2003/forge">Repository</a>
+        <a href="https://github.com/KhoaLy2003/forge/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/KhoaLy2003/forge/blob/main/LICENSE">License</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var toggle = document.getElementById("theme-toggle");
+      var systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+      function currentTheme() {
+        var explicit = document.documentElement.getAttribute("data-theme");
+        if (explicit === "light" || explicit === "dark") return explicit;
+        return systemPrefersDark.matches ? "dark" : "light";
+      }
+
+      toggle.addEventListener("click", function () {
+        var next = currentTheme() === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("forge-theme", next);
+      });
+    })();
+  </script>
+
+</body>
+</html>
