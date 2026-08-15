@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Which package to release"
+        required: true
+        type: choice
+        options:
+          - backend
+          - frontend
+      version:
+        description: "Version to release, matching <package>/pyproject.toml (no v prefix, e.g. 0.2.0)"
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve display name
+        id: names
+        run: |
+          if [ "${{ inputs.package }}" = "backend" ]; then
+            echo "display=Forge" >> "$GITHUB_OUTPUT"
+          else
+            echo "display=Forge Web" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify version matches pyproject.toml
+        run: |
+          pkg_version=$(grep -m1 '^version = ' "${{ inputs.package }}/pyproject.toml" | sed -E 's/version = "(.*)"/\1/')
+          if [ "$pkg_version" != "${{ inputs.version }}" ]; then
+            echo "::error::Input version '${{ inputs.version }}' does not match ${{ inputs.package }}/pyproject.toml version '$pkg_version'. Bump pyproject.toml and merge to main before releasing."
+            exit 1
+          fi
+
+      - name: Extract CHANGELOG section
+        id: notes
+        run: |
+          changelog="${{ inputs.package }}/CHANGELOG.md"
+          if [ ! -f "$changelog" ]; then
+            echo "::error::$changelog does not exist."
+            exit 1
+          fi
+          awk -v ver="${{ inputs.version }}" '
+            $0 ~ "^## " ver " " { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' "$changelog" > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::No '## ${{ inputs.version }}' heading found in $changelog."
+            exit 1
+          fi
+
+      - name: Verify tag does not already exist
+        run: |
+          tag="${{ inputs.package }}-v${{ inputs.version }}"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "::error::Tag $tag already exists."
+            exit 1
+          fi
+
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ inputs.package }}-v${{ inputs.version }}"
+          git tag "$tag"
+          git push origin "$tag"
+          gh release create "$tag" \
+            --title "${{ steps.names.outputs.display }} v${{ inputs.version }}" \
+            --notes-file release-notes.md
