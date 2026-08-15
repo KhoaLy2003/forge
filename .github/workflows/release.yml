@@ -21,7 +21,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Resolve display name
         id: names
@@ -35,10 +37,12 @@ jobs:
       - name: Verify version matches pyproject.toml
         run: |
           pkg_version=$(grep -m1 '^version = ' "${{ inputs.package }}/pyproject.toml" | sed -E 's/version = "(.*)"/\1/')
-          if [ "$pkg_version" != "${{ inputs.version }}" ]; then
-            echo "::error::Input version '${{ inputs.version }}' does not match ${{ inputs.package }}/pyproject.toml version '$pkg_version'. Bump pyproject.toml and merge to main before releasing."
+          if [ "$pkg_version" != "${INPUTS_VERSION}" ]; then
+            echo "::error::Input version '${INPUTS_VERSION}' does not match ${{ inputs.package }}/pyproject.toml version '$pkg_version'. Bump pyproject.toml and merge to main before releasing."
             exit 1
           fi
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
 
       - name: Extract CHANGELOG section
         id: notes
@@ -48,31 +52,37 @@ jobs:
             echo "::error::$changelog does not exist."
             exit 1
           fi
-          awk -v ver="${{ inputs.version }}" '
+          awk -v ver="${INPUTS_VERSION}" '
             $0 ~ "^## " ver " " { found=1; next }
             found && /^## / { exit }
             found { print }
           ' "$changelog" > release-notes.md
           if [ ! -s release-notes.md ]; then
-            echo "::error::No '## ${{ inputs.version }}' heading found in $changelog."
+            echo "::error::No '## ${INPUTS_VERSION}' heading found in $changelog."
             exit 1
           fi
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
 
       - name: Verify tag does not already exist
         run: |
-          tag="${{ inputs.package }}-v${{ inputs.version }}"
+          tag="${{ inputs.package }}-v${INPUTS_VERSION}"
           if git rev-parse "$tag" >/dev/null 2>&1; then
             echo "::error::Tag $tag already exists."
             exit 1
           fi
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
 
       - name: Create tag and release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUTS_VERSION: ${{ inputs.version }}
+          STEPS_NAMES_OUTPUTS_DISPLAY: ${{ steps.names.outputs.display }}
         run: |
-          tag="${{ inputs.package }}-v${{ inputs.version }}"
+          tag="${{ inputs.package }}-v${INPUTS_VERSION}"
           git tag "$tag"
           git push origin "$tag"
           gh release create "$tag" \
-            --title "${{ steps.names.outputs.display }} v${{ inputs.version }}" \
+            --title "${STEPS_NAMES_OUTPUTS_DISPLAY} v${INPUTS_VERSION}" \
             --notes-file release-notes.md
