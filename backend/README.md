@@ -23,6 +23,10 @@ old project by hand.
   Testcontainers-backed repository test — running the generated project's own
   `mvn test` requires Docker, but Forge's own validation only runs
   `mvn test-compile`, which doesn't
+- A GitHub Actions CI workflow (`.github/workflows/ci.yml`): `mvn verify`
+  (build, test, Spotless format check), CodeQL, a Trivy filesystem scan, PR
+  dependency review, and zizmor workflow linting — the dependency-review job
+  needs Dependabot/vulnerability alerts enabled on your GitHub repo first
 
 ## Install
 

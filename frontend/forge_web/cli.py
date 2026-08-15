@@ -31,6 +31,7 @@ def callback() -> None:
 TEMPLATE_DIR = Path(__file__).parent / "templates" / "base"
 
 EXPECTED_STRUCTURAL_PATHS: list[Path] = [
+    Path(".github/workflows/ci.yml"),
     Path("package.json"),
     Path("tsconfig.json"),
     Path("tsconfig.node.json"),

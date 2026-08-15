@@ -112,6 +112,17 @@ npm run build     # type-check (tsc) and produce a production build in dist/
 npm run preview   # locally preview the production build
 ```
 
+## Continuous Integration
+
+This project ships with a GitHub Actions workflow at
+`.github/workflows/ci.yml` that builds the app, and runs CodeQL, a Trivy
+filesystem scan, a dependency review (on pull requests), and zizmor
+(workflow linting) on every push/PR to `main`. The `dependency-review` job
+requires a one-time manual step on GitHub: enable Dependabot/vulnerability
+alerts on your repo (Settings → Code security → enable "Dependency graph"
+and "Dependabot alerts") — without that, the job will fail even though
+nothing is wrong with your code.
+
 ## Adding a New Page
 
 1. Create the page component under `src/pages/<feature>/`.

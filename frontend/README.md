@@ -20,6 +20,10 @@ than copying an old project by hand.
   formatters
 - A generated `.env` (pre-filled from your answers) alongside a documented
   `.env.example`
+- A GitHub Actions CI workflow (`.github/workflows/ci.yml`): `npm install &&
+  npm run build` (typecheck + build), CodeQL, a Trivy filesystem scan, PR
+  dependency review, and zizmor workflow linting — the dependency-review job
+  needs Dependabot/vulnerability alerts enabled on your GitHub repo first
 
 ## Install
 
