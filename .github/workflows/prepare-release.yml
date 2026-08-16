@@ -19,12 +19,11 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          persist-credentials: true
+          persist-credentials: false
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
@@ -38,7 +37,11 @@ jobs:
 
       - name: Open version-bump PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A PAT, not the default GITHUB_TOKEN: PRs authored by GITHUB_TOKEN
+          # can't trigger ci.yml's pull_request checks (changelog-check,
+          # tests, zizmor, ...), and GITHUB_TOKEN alone can't create PRs at
+          # all unless the repo's Actions settings explicitly allow it.
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
           PACKAGE: ${{ inputs.package }}
           VERSION: ${{ inputs.version }}
         run: |
@@ -48,6 +51,7 @@ jobs:
           git checkout -b "$branch"
           git add "${PACKAGE}/CHANGELOG.md" "${PACKAGE}/pyproject.toml"
           git commit -m "chore(${PACKAGE}): prepare release v${VERSION}"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
           git push origin "$branch"
           body=$(printf '%s\n' \
             "Automated version bump for \`${PACKAGE}\` v${VERSION}, produced by the" \
