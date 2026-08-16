@@ -115,27 +115,42 @@ those two paths doesn't leave a dangling reference that fails compilation.
 
 ### Frontend: `base` (unchanged) vs `minimal`
 
-`minimal` excludes:
-- The sample CRUD dashboard (`/` route and its page component)
-- The mock/real API client (`VITE_API_MODE` switch and both
-  implementations)
-- TanStack Query hooks
-- react-hook-form + zod wired demo form logic (the Shadcn `form.tsx`
-  *component* itself is retained since the full component set is kept)
+`minimal` excludes these files entirely:
+- `src/pages/dashboard/dashboard-page.tsx` and `src/pages/dashboard/item-form.tsx`
+  (the sample CRUD dashboard and its create/edit form)
+- `src/lib/hooks/use-items.ts` (the TanStack Query hooks)
+- `src/lib/api-client/**` (`types.ts`, `api-client.ts`, `mock-client.ts`,
+  `real-client.ts`, `index.ts` — the mock/real API client and its
+  `VITE_API_MODE` switch)
 
 Everything else is retained: the full 16-component Shadcn set, the
 `/components` showcase page, routing, theme tokens, static pages
 (404/error/loading/empty-state), and date/currency formatters.
 
-`package.json` (a shared file) needs its `@tanstack/react-query`,
-`react-hook-form`, and `zod` dependency entries wrapped in a Jinja2
-conditional keyed off a new `template_context()` boolean
-(`include_data_fetching`), derived the same way as backend's `use_liquibase`.
+**Correction from earlier brainstorming:** the retained `/components`
+showcase page (`src/pages/showcase/component-showcase-page.tsx`) imports
+`useForm` from `react-hook-form` directly to demo the form component live —
+it does not use `zod`/`@hookform/resolvers` (that's `item-form.tsx`-only,
+confirmed by grep). So `react-hook-form` and `@tanstack/react-table` (also
+used by the showcase page's `DataTable` demo) must stay in `minimal`'s
+`package.json` unconditionally; only `@tanstack/react-query`, `zod`, and
+`@hookform/resolvers` are excluded when `include_data_fetching` is false.
 
-Implementation-time check required: confirm the retained `/components`
-showcase page's demo data doesn't route through the excluded mock/real API
-client (it currently uses inline mock data per the existing template, so
-this should already hold — verify at implementation time).
+**Second correction:** `App.tsx` (a shared file) unconditionally imports
+`QueryClient`/`QueryClientProvider` from `@tanstack/react-query` and
+`DashboardPage`, and registers the `/dashboard` route — excluding the
+dashboard file alone would leave a dangling import and break `minimal`'s
+build. `App.tsx` therefore also needs Jinja2 conditionals keyed off
+`include_data_fetching`: the `@tanstack/react-query` import,
+`QueryClient`/`QueryClientProvider` construction and wrapping, the
+`DashboardPage` import, and the `/dashboard` route entry are all wrapped in
+`{% if include_data_fetching %}...{% endif %}` blocks.
+
+Implementation-time note: `landing-page.tsx` (retained in both templates)
+has prose mentioning `lib/api-client/` and `lib/hooks/` as part of its
+architecture explanation copy — this text becomes inaccurate for `minimal`
+but does not break the build. Leave as-is; not worth a conditional for
+copy-only drift.
 
 | Item | `base` | `minimal` |
 |---|---|---|
@@ -143,8 +158,9 @@ this should already hold — verify at implementation time).
 | Shadcn component set (all 16) + `/components` showcase | included | included |
 | Sample CRUD dashboard (`/`) | included | excluded |
 | Mock/real API client | included | excluded |
-| TanStack Query hooks | included | excluded |
-| react-hook-form + zod wired demo | included | excluded (component stays, wiring doesn't) |
+| TanStack Query hooks + `@tanstack/react-query` dep | included | excluded |
+| `zod` + `@hookform/resolvers` deps | included | excluded |
+| `react-hook-form` + `@tanstack/react-table` deps | included | included (showcase page needs both) |
 | date/currency formatters | included | included |
 | Generated CI workflow | included | included |
 
