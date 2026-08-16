@@ -26,6 +26,24 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      # test:coverage above already fails the build below 80% line coverage
+      # (vite.config.ts's test.coverage.thresholds); this step only makes
+      # the number visible on the run summary page.
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            {
+              echo "### Code coverage (gate: 80% lines)"
+              node -e "const s=require('./coverage/coverage-summary.json').total.lines; console.log('**Overall line coverage: ' + s.pct + '%** (' + s.covered + '/' + s.total + ' lines)')"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Code coverage: report not generated (tests failed before coverage was written)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   codeql:
     runs-on: ubuntu-latest
     permissions:

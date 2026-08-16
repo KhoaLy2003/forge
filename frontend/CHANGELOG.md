@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+- Generated projects now ship a Vitest + React Testing Library test suite
+  covering every component and page in the template, gated at 80% overall
+  line coverage via `vite.config.ts`'s `test.coverage.thresholds` and
+  enforced in the generated CI workflow (`npm run test:coverage`), with a
+  coverage-summary step writing the percentage to the CI run's job summary
+  regardless of pass/fail. Vitest was chosen over Jest to reuse the
+  project's existing Vite transform pipeline directly. `main.tsx`'s
+  bootstrap and two type-only files (`api-client/types.ts`,
+  `api-client/api-client.ts`) are excluded from the gate as
+  untestable/non-executable; everything else — including the
+  `include_data_fetching`-conditional `nav-sidebar.tsx`/`App.tsx` branches —
+  is covered by real tests, not exclusions. Verified end-to-end against
+  fresh renders of both templates: `base` lands at 93.45% (71 tests),
+  `minimal` at 92.67% (48 tests).
 - This repo's own CI now runs `pytest --cov=forge_web.core --cov=forge_web.cli`,
   gated at 90% coverage of the generator's own Python source (not
   `templates/`). A coverage-summary step writes the per-file breakdown to

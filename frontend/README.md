@@ -22,10 +22,17 @@ project by hand. Two templates are available via `--template` — see
 - Date/currency formatters
 - A generated `.env` (pre-filled from your answers) alongside a documented
   `.env.example`
+- A Vitest + React Testing Library test suite covering every component and
+  page, gated at 80% overall line coverage (`npm run test:coverage`), with
+  a per-run coverage summary in CI — `main.tsx`'s bootstrap and type-only
+  files (`api-client/types.ts`, `api-client/api-client.ts`) are excluded as
+  untestable/non-executable, everything else counts. `npm test` runs the
+  suite without the gate for a fast local inner loop.
 - A GitHub Actions CI workflow (`.github/workflows/ci.yml`): `npm install &&
-  npm run build` (typecheck + build), CodeQL, a Trivy filesystem scan, PR
-  dependency review, and zizmor workflow linting — the dependency-review job
-  needs Dependabot/vulnerability alerts enabled on your GitHub repo first
+  npm run build` (typecheck + build), the coverage-gated test suite above,
+  CodeQL, a Trivy filesystem scan, PR dependency review, and zizmor
+  workflow linting — the dependency-review job needs Dependabot/
+  vulnerability alerts enabled on your GitHub repo first
 
 ## Install
 
