@@ -1,6 +1,6 @@
-# Changelog
-
 ## [Unreleased]
+
+## 0.3.0 — 2026-08-16
 
 - Generated projects' `pom.xml` now includes `jacoco-maven-plugin`, gating
   `mvn verify` (and therefore the generated CI workflow) on 90% overall line
