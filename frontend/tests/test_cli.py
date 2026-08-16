@@ -9,7 +9,7 @@ runner = CliRunner()
 
 
 def test_new_aborts_if_target_exists(tmp_path, monkeypatch):
-    monkeypatch.setattr(cli, "TEMPLATE_DIR", cli.TEMPLATE_DIR)
+    monkeypatch.setattr(cli, "SHARED_DIR", cli.SHARED_DIR)
     existing = tmp_path / "my-dashboard"
     existing.mkdir()
 
@@ -20,6 +20,7 @@ def test_new_aborts_if_target_exists(tmp_path, monkeypatch):
             "--name", "my-dashboard",
             "--path", str(tmp_path),
             "--api-base-url", "http://localhost:8080/api",
+            "--template", "base",
         ],
     )
 
@@ -28,7 +29,7 @@ def test_new_aborts_if_target_exists(tmp_path, monkeypatch):
 
 
 def test_new_errors_if_template_dir_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr(cli, "TEMPLATE_DIR", tmp_path / "does-not-exist")
+    monkeypatch.setattr(cli, "SHARED_DIR", tmp_path / "does-not-exist")
 
     result = runner.invoke(
         cli.app,
@@ -37,11 +38,28 @@ def test_new_errors_if_template_dir_missing(tmp_path, monkeypatch):
             "--name", "my-dashboard",
             "--path", str(tmp_path),
             "--api-base-url", "http://localhost:8080/api",
+            "--template", "base",
         ],
     )
 
     assert result.exit_code == 1
     assert "template directory not found" in result.output
+
+
+def test_new_errors_on_unknown_template(tmp_path):
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path),
+            "--api-base-url", "http://localhost:8080/api",
+            "--template", "does-not-exist",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "base" in result.output and "minimal" in result.output
 
 
 def make_fixture_template(tmp_path: Path) -> Path:
@@ -61,7 +79,43 @@ def make_fixture_template(tmp_path: Path) -> Path:
 
 def test_new_generates_project_on_confirm(tmp_path, monkeypatch):
     template_dir = make_fixture_template(tmp_path / "src")
-    monkeypatch.setattr(cli, "TEMPLATE_DIR", template_dir)
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+    monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli, "run_typecheck", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli,
+        "check_no_hardcoded_design_values",
+        lambda target_dir: ValidationResult(True, "ok"),
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+            "--template", "base",
+        ],
+        input="y\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out" / "my-dashboard" / "package.json").exists()
+    assert "Project generated successfully" in result.output
+
+
+def test_new_defaults_template_when_flag_omitted(tmp_path, monkeypatch):
+    """A flag-complete invocation that omits --template must still run non-interactively
+    to completion (no wizard prompt for template) — regression test for a bug where
+    --template had no default and always fell through to a blocking wizard prompt."""
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
     monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
     monkeypatch.setattr(
         cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
@@ -88,12 +142,11 @@ def test_new_generates_project_on_confirm(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert (tmp_path / "out" / "my-dashboard" / "package.json").exists()
-    assert "Project generated successfully" in result.output
 
 
 def test_new_generates_dot_env_from_env_example(tmp_path, monkeypatch):
     template_dir = make_fixture_template(tmp_path / "src")
-    monkeypatch.setattr(cli, "TEMPLATE_DIR", template_dir)
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
     monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
     monkeypatch.setattr(
         cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
@@ -114,6 +167,7 @@ def test_new_generates_dot_env_from_env_example(tmp_path, monkeypatch):
             "--name", "my-dashboard",
             "--path", str(tmp_path / "out"),
             "--api-base-url", "http://localhost:8080/api",
+            "--template", "base",
         ],
         input="y\n",
     )
@@ -134,8 +188,8 @@ def test_new_cancels_on_no_confirm(tmp_path):
 
     from forge_web import cli as cli_module
 
-    original_template_dir = cli_module.TEMPLATE_DIR
-    cli_module.TEMPLATE_DIR = template_dir
+    original_shared_dir = cli_module.SHARED_DIR
+    cli_module.SHARED_DIR = template_dir
     try:
         result = runner.invoke(
             cli_module.app,
@@ -144,12 +198,193 @@ def test_new_cancels_on_no_confirm(tmp_path):
                 "--name", "my-dashboard",
                 "--path", str(tmp_path / "out"),
                 "--api-base-url", "http://localhost:8080/api",
+                "--template", "base",
             ],
             input="n\n",
         )
     finally:
-        cli_module.TEMPLATE_DIR = original_template_dir
+        cli_module.SHARED_DIR = original_shared_dir
 
     assert result.exit_code == 0
     assert not (tmp_path / "out" / "my-dashboard").exists()
     assert "Cancelled" in result.output
+
+
+def test_new_with_minimal_template_excludes_api_client(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli, "run_typecheck", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli,
+        "check_no_hardcoded_design_values",
+        lambda target_dir: ValidationResult(True, "ok"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "check_no_spacing_scale_width_collisions",
+        lambda target_dir: ValidationResult(True, "ok"),
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+            "--template", "minimal",
+        ],
+        input="y\n",
+    )
+
+    target_dir = tmp_path / "out" / "my-dashboard"
+    assert result.exit_code == 0, result.output
+    assert not (target_dir / "src" / "lib" / "api-client").exists()
+
+
+def test_new_deletes_folder_on_render_failure_when_confirmed(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+
+    def raise_on_render(*args, **kwargs):
+        (tmp_path / "out" / "my-dashboard").mkdir(parents=True)
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(cli, "render_tree", raise_on_render)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+            "--verbose",
+        ],
+        input="y\ny\n",
+    )
+
+    assert result.exit_code == 1
+    assert "failed to write project files" in result.output
+    assert "Traceback" in result.output
+    assert not (tmp_path / "out" / "my-dashboard").exists()
+
+
+def test_new_reports_build_failure(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+    monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(False, "build failed")
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+        ],
+        input="y\nn\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Validation failed" in result.output
+    assert (tmp_path / "out" / "my-dashboard").exists()
+
+
+def test_new_reports_typecheck_failure(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+    monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli, "run_typecheck", lambda target_dir: ValidationResult(False, "typecheck failed")
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+        ],
+        input="y\nn\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Validation failed" in result.output
+
+
+def test_new_reports_hardcoded_design_values_failure(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+    monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli, "run_typecheck", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli,
+        "check_no_hardcoded_design_values",
+        lambda target_dir: ValidationResult(False, "hardcoded value found"),
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+        ],
+        input="y\nn\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Validation failed" in result.output
+
+
+def test_new_reports_spacing_scale_collision_failure(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+    monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli, "run_typecheck", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli,
+        "check_no_hardcoded_design_values",
+        lambda target_dir: ValidationResult(True, "ok"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "check_no_spacing_scale_width_collisions",
+        lambda target_dir: ValidationResult(False, "collision found"),
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+        ],
+        input="y\nn\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Validation failed" in result.output

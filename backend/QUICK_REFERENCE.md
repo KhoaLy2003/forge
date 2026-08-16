@@ -14,11 +14,16 @@ Prompts for anything not passed as a flag:
 | `--path` | Target path (parent directory) | `C:\projects` |
 | `--group-id` | Group id | `com.example` |
 | `--artifact-id` | Artifact id | `my-service` |
+| `--template` | *(not wizard-prompted — see below)* | `base-layered` or `minimal` |
+
+`--template` is not part of the wizard/prompt table above — it always
+defaults to `base-layered` if you don't pass it, so an invocation with
+every other flag supplied still runs non-interactively without a prompt.
 
 Fully non-interactive example:
 
 ```bash
-.venv\Scripts\forge new --name my-service --path C:\projects --group-id com.example --artifact-id my-service
+.venv\Scripts\forge new --name my-service --path C:\projects --group-id com.example --artifact-id my-service --template minimal
 ```
 
 Mixed — only the flags you omit get prompted:

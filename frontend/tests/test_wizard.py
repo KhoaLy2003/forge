@@ -12,6 +12,7 @@ def test_collect_params_uses_overrides_without_prompting():
             "project_name": "my-dashboard",
             "target_path": "/tmp/out",
             "api_base_url": "http://localhost:8080/api",
+            "template": "base",
         },
         prompt_fn=fail_if_called,
     )
@@ -50,6 +51,7 @@ def test_collect_params_resolves_relative_target_path():
             "project_name": "my-dashboard",
             "target_path": "some/relative/dir",
             "api_base_url": "http://localhost:8080/api",
+            "template": "base",
         },
         prompt_fn=lambda _label: (_ for _ in ()).throw(
             AssertionError("prompt_fn should not be called")
@@ -57,6 +59,23 @@ def test_collect_params_resolves_relative_target_path():
     )
     assert config.target_path.is_absolute()
     assert config.target_path == Path("some/relative/dir").resolve()
+
+
+def test_collect_params_defaults_template_when_omitted():
+    """`template` is deliberately NOT wizard-prompted (see cli.py's --template default) —
+    omitting it from overrides falls through to ForgeWebConfig's own default so existing
+    flag-complete, non-interactive invocations aren't newly blocked on a prompt."""
+    config = collect_params(
+        {
+            "project_name": "my-dashboard",
+            "target_path": "/tmp/out",
+            "api_base_url": "http://localhost:8080/api",
+        },
+        prompt_fn=lambda _label: (_ for _ in ()).throw(
+            AssertionError("prompt_fn should not be called")
+        ),
+    )
+    assert config.template == "base"
 
 
 def test_collect_params_reprompts_on_empty_answer_for_validatorless_field():
@@ -85,6 +104,7 @@ def test_collect_params_expands_home_in_target_path():
             "project_name": "my-dashboard",
             "target_path": "~/somedir",
             "api_base_url": "http://localhost:8080/api",
+            "template": "base",
         },
         prompt_fn=lambda _label: (_ for _ in ()).throw(
             AssertionError("prompt_fn should not be called")

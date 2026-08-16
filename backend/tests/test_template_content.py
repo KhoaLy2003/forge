@@ -1,6 +1,6 @@
 from pathlib import Path
 
-TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "base-layered"
+TEMPLATE_DIR = Path(__file__).parent.parent / "templates" / "_shared"
 
 EXPECTED_TEMPLATE_FILES = [
     "pom.xml",

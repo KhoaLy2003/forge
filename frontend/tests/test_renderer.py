@@ -88,3 +88,44 @@ def test_render_tree_raises_if_target_exists(tmp_path):
         render_tree(template_dir, target_dir, {"project_name": "acme", "name": "World"})
 
     assert list(target_dir.iterdir()) == []
+
+
+def test_resolve_tree_drops_paths_matching_excluded_pattern(tmp_path):
+    template_dir = tmp_path / "template5"
+    template_dir.mkdir()
+    (template_dir / "keep.txt").write_text("keep", encoding="utf-8")
+    (template_dir / "drop").mkdir()
+    (template_dir / "drop" / "nested.txt").write_text("drop", encoding="utf-8")
+
+    result = resolve_tree(template_dir, {}, excluded=("drop/*",))
+
+    assert result == [Path("keep.txt")]
+
+
+def test_render_tree_does_not_write_excluded_files(tmp_path):
+    template_dir = tmp_path / "template6"
+    template_dir.mkdir()
+    (template_dir / "keep.txt").write_text("keep", encoding="utf-8")
+    (template_dir / "drop").mkdir()
+    (template_dir / "drop" / "nested.txt").write_text("drop", encoding="utf-8")
+    target_dir = tmp_path / "out6"
+
+    render_tree(template_dir, target_dir, {}, excluded=("drop/*",))
+
+    assert (target_dir / "keep.txt").exists()
+    assert not (target_dir / "drop").exists()
+
+
+def test_excluded_pattern_matches_against_unrendered_path(tmp_path):
+    template_dir = tmp_path / "template7"
+    (template_dir / "{{ package_path }}" / "example").mkdir(parents=True)
+    (template_dir / "{{ package_path }}" / "example" / "Foo.java").write_text(
+        "content", encoding="utf-8"
+    )
+    context = {"package_path": "com/example"}
+
+    result = resolve_tree(
+        template_dir, context, excluded=("{{ package_path }}/example/*",)
+    )
+
+    assert result == []

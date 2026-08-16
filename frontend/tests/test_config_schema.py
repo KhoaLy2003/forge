@@ -11,6 +11,7 @@ def make_config(**overrides):
         project_name="my-dashboard",
         target_path=Path("/tmp/out"),
         api_base_url="http://localhost:8080/api",
+        template="base",
     )
     values.update(overrides)
     return ForgeWebConfig(**values)
@@ -67,9 +68,26 @@ def test_template_context_has_expected_keys_and_values():
         "project_name": "my-dashboard",
         "app_display_name": "My Dashboard",
         "api_base_url": "http://localhost:8080/api",
+        "template": "base",
+        "include_data_fetching": True,
     }
 
 
 def test_invalid_project_name_rejected():
     with pytest.raises(ValidationError):
         make_config(project_name="1bad")
+
+
+def test_template_context_includes_include_data_fetching_flag_true_for_base():
+    config = make_config(template="base")
+    assert config.template_context()["include_data_fetching"] is True
+
+
+def test_template_context_includes_include_data_fetching_flag_false_for_minimal():
+    config = make_config(template="minimal")
+    assert config.template_context()["include_data_fetching"] is False
+
+
+def test_unknown_template_raises_validation_error():
+    with pytest.raises(ValidationError):
+        make_config(template="nonexistent")

@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+- Generated projects' `pom.xml` now includes `jacoco-maven-plugin`, gating
+  `mvn verify` (and therefore the generated CI workflow) on 90% overall line
+  coverage; a coverage-summary step writes the actual percentage to the CI
+  run's job summary regardless of pass/fail. The application entry point's
+  `main()` and pure bean-wiring `@Configuration` classes (`JpaAuditingConfig`,
+  `OpenApiConfig`) are excluded from the gate as untestable framework
+  boilerplate; `CorrelationIdFilter` stays in scope since it has real request
+  logic. Existing template tests were extended (`GlobalExceptionHandlerTest`,
+  `ExampleControllerTest`, `ExampleServiceImplTest`) to close real coverage
+  gaps this surfaced (previously-untested `findAll`/`update`/`delete`
+  endpoints and not-found/optimistic-lock/data-integrity-violation branches)
+  so both `base-layered` and `minimal` clear the gate out of the box.
+- This repo's own CI now runs `pytest --cov=core --cov=cli`, gated at 90%
+  coverage of the generator's own Python source (`core/`/`cli.py` — not
+  `templates/`). A coverage-summary step writes the per-file breakdown to
+  the job summary. `main()`'s console-encoding boilerplate is excluded via
+  `# pragma: no cover`.
+- Added a `--template` flag (`base-layered` [default] / `minimal`) plus the
+  registry mechanism behind it: `templates/base-layered/` was split into
+  `templates/_shared/` (the file tree) and per-template `manifest.py`
+  exclude-glob manifests, discovered by a new `core/templates.py`. `minimal`
+  drops Liquibase migrations and the Testcontainers-backed repository test
+  while keeping the `example` CRUD slice and MapStruct; `pom.xml` and
+  `application.yml` gained `{% if use_liquibase %}` conditionals for the
+  content that must differ even though the files themselves are shared.
+  `--template` is deliberately not part of the interactive wizard and
+  always defaults to `base-layered`, so existing non-interactive,
+  flag-complete invocations are unaffected.
 - Generated projects now ship a GitHub Actions CI workflow
   (`.github/workflows/ci.yml`): `mvn verify` (build, full Testcontainers-backed
   test suite, Spotless format check), CodeQL (`java-kotlin`, manual build

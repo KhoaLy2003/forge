@@ -2,6 +2,39 @@
 
 ## [Unreleased]
 
+- Generated projects now ship a Vitest + React Testing Library test suite
+  covering every component and page in the template, gated at 80% overall
+  line coverage via `vite.config.ts`'s `test.coverage.thresholds` and
+  enforced in the generated CI workflow (`npm run test:coverage`), with a
+  coverage-summary step writing the percentage to the CI run's job summary
+  regardless of pass/fail. Vitest was chosen over Jest to reuse the
+  project's existing Vite transform pipeline directly. `main.tsx`'s
+  bootstrap and two type-only files (`api-client/types.ts`,
+  `api-client/api-client.ts`) are excluded from the gate as
+  untestable/non-executable; everything else — including the
+  `include_data_fetching`-conditional `nav-sidebar.tsx`/`App.tsx` branches —
+  is covered by real tests, not exclusions. Verified end-to-end against
+  fresh renders of both templates: `base` lands at 93.45% (71 tests),
+  `minimal` at 92.67% (48 tests).
+- This repo's own CI now runs `pytest --cov=forge_web.core --cov=forge_web.cli`,
+  gated at 90% coverage of the generator's own Python source (not
+  `templates/`). A coverage-summary step writes the per-file breakdown to
+  the job summary. `main()`'s console-encoding boilerplate is excluded via
+  `# pragma: no cover`; new tests were added for previously-untested CLI
+  failure branches (build/typecheck/design-token/spacing-collision
+  failures, and the render-exception path) to close a real gap this
+  surfaced, rather than lowering the bar to hide it.
+- Added a `--template` flag (`base` [default] / `minimal`) plus the registry
+  mechanism behind it: `templates/base/` was split into `templates/_shared/`
+  (the file tree) and per-template `manifest.py` exclude-glob manifests,
+  discovered by a new `core/templates.py`. `minimal` drops the sample CRUD
+  dashboard, its API client, and TanStack Query hooks while keeping the full
+  Shadcn component set and the `/components` showcase page; `package.json`,
+  `App.tsx`, and `nav-sidebar.tsx` gained `{% if include_data_fetching %}`
+  conditionals for the content/wiring that must differ even though those
+  files themselves are shared. `--template` is deliberately not part of the
+  interactive wizard and always defaults to `base`, so existing
+  non-interactive, flag-complete invocations are unaffected.
 - Generated projects now ship a GitHub Actions CI workflow
   (`.github/workflows/ci.yml`): `npm install && npm run build` (typecheck +
   build; no separate test step, since the scaffold has no test runner

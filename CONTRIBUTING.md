@@ -43,6 +43,37 @@ CI (`.github/workflows/ci.yml`) runs the same suite on every push and PR to
 - Keep changes to `backend/` and `frontend/` in separate commits/PRs where
   possible; the two packages share no code.
 
+### Adding a new template
+
+Both packages render from `templates/_shared/` (backend) /
+`forge_web/templates/_shared/` (frontend) plus a per-template exclude list.
+To add a new template:
+
+1. Create `templates/<name>/manifest.py` exporting `EXCLUDES: tuple[str, ...]`
+   — glob patterns matched against the unrendered `_shared`-relative path
+   (`fnmatch` semantics: a single `*` already matches across `/`, no need
+   for `**`). An empty `EXCLUDES = ()` includes everything.
+2. If the new template needs a *shared* file's content (not just its
+   presence) to differ, add a boolean to `template_context()` (see
+   `use_liquibase` in `backend/core/config_schema.py` or
+   `include_data_fetching` in `frontend/forge_web/core/config_schema.py` for
+   the pattern) and wrap the relevant lines in `{% if %}...{% endif %}`.
+   Watch for two easy-to-miss spots: files that reference an excluded file
+   by import/route (e.g. a shared `App.tsx` importing an excluded page —
+   must be made conditional too, not just the excluded file itself) and
+   TypeScript files under a `noUnusedLocals: true` tsconfig (an import that
+   becomes unused under the new template must be made conditional as well,
+   or `tsc --noEmit` fails).
+3. `discover_templates()` (`core/templates.py` in each package) picks up the
+   new `manifest.py` automatically — no registry to hand-edit.
+4. Do **not** add the new template name to `FIELD_PROMPTS` in `core/wizard.py`
+   — `--template` is deliberately not wizard-prompted (see `cli.py`'s
+   `--template` default) so that existing non-interactive, flag-complete
+   invocations never start blocking on a new prompt.
+5. Add a manifest-sanity assertion and extend the parametrized
+   `test_generation.py` — see `backend/tests/test_template_manifests.py` /
+   `frontend/tests/test_template_manifests.py` for the pattern.
+
 ## Submitting a PR
 
 1. Fork the repo and create a branch off `main`.

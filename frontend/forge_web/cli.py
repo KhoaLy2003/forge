@@ -6,10 +6,12 @@ import traceback
 from pathlib import Path
 
 import typer
+from pydantic import ValidationError
 
 from forge_web.core.config_schema import ForgeWebConfig
 from forge_web.core.progress import step
 from forge_web.core.renderer import render_tree, resolve_tree
+from forge_web.core.templates import SHARED_DIR, discover_templates, filter_excluded_paths
 from forge_web.core.tree_preview import confirm, format_tree
 from forge_web.core.validator import (
     check_no_hardcoded_design_values,
@@ -28,7 +30,7 @@ def callback() -> None:
     """Forge Web: scaffold a new Vite + React + TypeScript + Shadcn project."""
 
 
-TEMPLATE_DIR = Path(__file__).parent / "templates" / "base"
+TEMPLATES = discover_templates()
 
 EXPECTED_STRUCTURAL_PATHS: list[Path] = [
     Path(".github/workflows/ci.yml"),
@@ -86,6 +88,7 @@ def new(
     project_name: str = typer.Option(None, "--name"),
     target_path: str = typer.Option(None, "--path"),
     api_base_url: str = typer.Option(None, "--api-base-url"),
+    template: str = typer.Option("base", "--template"),
     verbose: bool = typer.Option(False, "--verbose"),
 ):
     """Scaffold a new frontend project: collect params, preview, render, then validate."""
@@ -93,26 +96,33 @@ def new(
         "project_name": project_name,
         "target_path": target_path,
         "api_base_url": api_base_url,
+        "template": template,
     }
-    config = collect_params(overrides)
+    try:
+        config = collect_params(overrides)
+    except ValidationError as exc:
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
 
     if config.target_dir.exists():
         typer.echo(f"Error: target directory already exists: {config.target_dir}")
         raise typer.Exit(code=1)
 
-    if not TEMPLATE_DIR.is_dir():
-        typer.echo(f"Error: template directory not found: {TEMPLATE_DIR}")
+    excluded = TEMPLATES[config.template]
+
+    if not SHARED_DIR.is_dir():
+        typer.echo(f"Error: template directory not found: {SHARED_DIR}")
         raise typer.Exit(code=1)
 
     context = config.template_context()
-    tree = resolve_tree(TEMPLATE_DIR, context)
+    tree = resolve_tree(SHARED_DIR, context, excluded=excluded)
     if not confirm(format_tree(tree)):
         typer.echo("Cancelled.")
         raise typer.Exit(code=0)
 
     step("Writing project files...", 1, 4)
     try:
-        render_tree(TEMPLATE_DIR, config.target_dir, context)
+        render_tree(SHARED_DIR, config.target_dir, context, excluded=excluded)
     except Exception as exc:
         typer.echo(f"Error: failed to write project files: {exc}")
         if verbose:
@@ -127,7 +137,8 @@ def new(
         shutil.copy(env_example, config.target_dir / ".env")
 
     step("Running structural check...", 2, 4)
-    structural = check_structure(config.target_dir, EXPECTED_STRUCTURAL_PATHS)
+    static_paths = filter_excluded_paths(EXPECTED_STRUCTURAL_PATHS, excluded, context)
+    structural = check_structure(config.target_dir, static_paths)
 
     build_result = None
     typecheck_result = None
@@ -168,7 +179,7 @@ def new(
     typer.echo("npm run dev")
 
 
-def main():
+def main():  # pragma: no cover
     """Console-script entry point."""
     # The tree preview uses Unicode box-drawing characters; Windows consoles
     # commonly default to a non-UTF-8 codepage (e.g. cp1252), which raises
@@ -179,5 +190,5 @@ def main():
     app()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()
