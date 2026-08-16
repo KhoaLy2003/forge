@@ -33,6 +33,7 @@
   <!-- spring-boot-starter-parent:4.0.0 does not manage testcontainers.version in this environment
        (unlike spring-boot-starter-test), so this explicit BOM import is required for the
        org.testcontainers:junit-jupiter / org.testcontainers:postgresql test dependencies below to resolve. -->
+{% if use_liquibase %}
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -44,6 +45,7 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+{% endif %}
 
   <dependencies>
     <!-- Web & Validation: exposes REST endpoints (embedded Tomcat + Spring MVC) and
@@ -66,6 +68,7 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-jpa</artifactId>
     </dependency>
+{% if use_liquibase %}
     <dependency>
       <groupId>org.liquibase</groupId>
       <artifactId>liquibase-core</artifactId>
@@ -75,6 +78,7 @@
       <artifactId>spring-boot-liquibase</artifactId>
       <version>${spring-boot-liquibase.version}</version>
     </dependency>
+{% endif %}
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
@@ -135,6 +139,7 @@
       <artifactId>spring-boot-starter-data-jpa-test</artifactId>
       <scope>test</scope>
     </dependency>
+{% if use_liquibase %}
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>junit-jupiter</artifactId>
@@ -145,6 +150,7 @@
       <artifactId>postgresql</artifactId>
       <scope>test</scope>
     </dependency>
+{% endif %}
   </dependencies>
 
   <build>

@@ -3,11 +3,13 @@ spring:
     name: {{ artifact_id }}
   profiles:
     active: dev
+{% if use_liquibase %}
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
+{% endif %}
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: {% if use_liquibase %}none{% else %}update{% endif %}
 
 management:
   endpoints:

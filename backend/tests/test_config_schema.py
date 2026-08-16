@@ -17,6 +17,7 @@ def make_config(**overrides):
         target_path=Path("/tmp/out"),
         group_id="com.example",
         artifact_id="demo-service",
+        template="base-layered",
     )
     values.update(overrides)
     return ForgeConfig(**values)
@@ -57,6 +58,8 @@ def test_template_context_has_expected_keys():
         "base_package",
         "package_path",
         "app_class_name",
+        "template",
+        "use_liquibase",
     }
 
 
@@ -111,3 +114,18 @@ def test_validate_artifact_id_accepts_non_reserved_id():
 def test_validate_artifact_id_accepts_id_that_is_only_reserved_before_hyphen_strip():
     # "my-class" strips to "myclass", which is not a reserved word.
     assert validate_artifact_id("my-class") == "my-class"
+
+
+def test_template_context_includes_use_liquibase_flag_true_for_base_layered():
+    config = ForgeConfig(project_name="demo", target_path=Path("."), group_id="com.example", artifact_id="demo", template="base-layered")
+    assert config.template_context()["use_liquibase"] is True
+
+
+def test_template_context_includes_use_liquibase_flag_false_for_minimal():
+    config = ForgeConfig(project_name="demo", target_path=Path("."), group_id="com.example", artifact_id="demo", template="minimal")
+    assert config.template_context()["use_liquibase"] is False
+
+
+def test_unknown_template_raises_validation_error():
+    with pytest.raises(ValidationError):
+        ForgeConfig(project_name="demo", target_path=Path("."), group_id="com.example", artifact_id="demo", template="nonexistent")

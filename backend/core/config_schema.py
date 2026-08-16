@@ -5,9 +5,13 @@ from pathlib import Path
 
 from pydantic import BaseModel, field_validator
 
+from core.templates import discover_templates
+
 PROJECT_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 GROUP_ID_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$")
 ARTIFACT_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+
+VALID_TEMPLATES = frozenset(discover_templates())
 
 JAVA_RESERVED_WORDS = frozenset(
     {
@@ -61,6 +65,13 @@ def validate_artifact_id(value: str) -> str:
     return value
 
 
+def validate_template(value: str) -> str:
+    """Validate a template name is one of the registered templates."""
+    if value not in VALID_TEMPLATES:
+        raise ValueError(f"must be one of: {', '.join(sorted(VALID_TEMPLATES))}")
+    return value
+
+
 class ForgeConfig(BaseModel):
     """Validated parameters for one Forge generation run, plus derived template values."""
 
@@ -68,6 +79,7 @@ class ForgeConfig(BaseModel):
     target_path: Path
     group_id: str
     artifact_id: str
+    template: str = "base-layered"
 
     @field_validator("project_name")
     @classmethod
@@ -83,6 +95,11 @@ class ForgeConfig(BaseModel):
     @classmethod
     def _check_artifact_id(cls, v: str) -> str:
         return validate_artifact_id(v)
+
+    @field_validator("template")
+    @classmethod
+    def _check_template(cls, v: str) -> str:
+        return validate_template(v)
 
     @property
     def target_dir(self) -> Path:
@@ -104,6 +121,11 @@ class ForgeConfig(BaseModel):
         """The PascalCase application class name prefix derived from the artifact id."""
         return "".join(part.capitalize() for part in self.artifact_id.split("-"))
 
+    @property
+    def use_liquibase(self) -> bool:
+        """Whether the selected template retains Liquibase migrations and Testcontainers."""
+        return self.template != "minimal"
+
     def template_context(self) -> dict:
         """Build the Jinja2 rendering context used by the template renderer."""
         return {
@@ -113,4 +135,6 @@ class ForgeConfig(BaseModel):
             "base_package": self.base_package,
             "package_path": self.package_path,
             "app_class_name": self.app_class_name,
+            "template": self.template,
+            "use_liquibase": self.use_liquibase,
         }

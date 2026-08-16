@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+- Added a `--template` flag (`base-layered` [default] / `minimal`) plus the
+  registry mechanism behind it: `templates/base-layered/` was split into
+  `templates/_shared/` (the file tree) and per-template `manifest.py`
+  exclude-glob manifests, discovered by a new `core/templates.py`. `minimal`
+  drops Liquibase migrations and the Testcontainers-backed repository test
+  while keeping the `example` CRUD slice and MapStruct; `pom.xml` and
+  `application.yml` gained `{% if use_liquibase %}` conditionals for the
+  content that must differ even though the files themselves are shared.
+  `--template` is deliberately not part of the interactive wizard and
+  always defaults to `base-layered`, so existing non-interactive,
+  flag-complete invocations are unaffected.
 - Generated projects now ship a GitHub Actions CI workflow
   (`.github/workflows/ci.yml`): `mvn verify` (build, full Testcontainers-backed
   test suite, Spotless format check), CodeQL (`java-kotlin`, manual build

@@ -6,10 +6,12 @@ import traceback
 from pathlib import Path
 
 import typer
+from pydantic import ValidationError
 
 from core.config_schema import ForgeConfig
 from core.progress import step
 from core.renderer import render_tree, resolve_tree
+from core.templates import SHARED_DIR, discover_templates, filter_excluded_paths
 from core.tree_preview import confirm, format_tree
 from core.validator import check_structure, run_compile
 from core.wizard import collect_params
@@ -22,7 +24,7 @@ def callback() -> None:
     """Forge: scaffold a new Spring Boot service."""
 
 
-TEMPLATE_DIR = Path(__file__).parent / "templates" / "base-layered"
+TEMPLATES = discover_templates()
 
 EXPECTED_STRUCTURAL_PATHS = [
     Path("pom.xml"),
@@ -93,6 +95,7 @@ def new(
     target_path: str = typer.Option(None, "--path"),
     group_id: str = typer.Option(None, "--group-id"),
     artifact_id: str = typer.Option(None, "--artifact-id"),
+    template: str = typer.Option("base-layered", "--template"),
     verbose: bool = typer.Option(False, "--verbose"),
 ):
     """Scaffold a new Spring Boot project: collect params, preview, render, then validate."""
@@ -101,26 +104,33 @@ def new(
         "target_path": target_path,
         "group_id": group_id,
         "artifact_id": artifact_id,
+        "template": template,
     }
-    config = collect_params(overrides)
+    try:
+        config = collect_params(overrides)
+    except ValidationError as exc:
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
 
     if config.target_dir.exists():
         typer.echo(f"Error: target directory already exists: {config.target_dir}")
         raise typer.Exit(code=1)
 
-    if not TEMPLATE_DIR.is_dir():
-        typer.echo(f"Error: template directory not found: {TEMPLATE_DIR}")
+    if not SHARED_DIR.is_dir():
+        typer.echo(f"Error: template directory not found: {SHARED_DIR}")
         raise typer.Exit(code=1)
 
+    excluded = TEMPLATES[config.template]
+
     context = config.template_context()
-    tree = resolve_tree(TEMPLATE_DIR, context)
+    tree = resolve_tree(SHARED_DIR, context, excluded=excluded)
     if not confirm(format_tree(tree)):
         typer.echo("Cancelled.")
         raise typer.Exit(code=0)
 
     step("Writing project files...", 1, 3)
     try:
-        render_tree(TEMPLATE_DIR, config.target_dir, context)
+        render_tree(SHARED_DIR, config.target_dir, context, excluded=excluded)
     except Exception as exc:
         typer.echo(f"Error: failed to write project files: {exc}")
         if verbose:
@@ -131,9 +141,9 @@ def new(
         raise typer.Exit(code=1)
 
     step("Running structural check...", 2, 3)
-    structural = check_structure(
-        config.target_dir, EXPECTED_STRUCTURAL_PATHS + expected_structural_paths(context)
-    )
+    static_paths = filter_excluded_paths(EXPECTED_STRUCTURAL_PATHS, excluded, context)
+    dynamic_paths = filter_excluded_paths(expected_structural_paths(context), excluded, context)
+    structural = check_structure(config.target_dir, static_paths + dynamic_paths)
 
     compile_result = None
     if structural.passed:
