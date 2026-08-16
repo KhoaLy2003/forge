@@ -1,0 +1,65 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Which package to prepare a release for"
+        required: true
+        type: choice
+        options:
+          - backend
+          - frontend
+      version:
+        description: "New version to release, e.g. 0.3.0"
+        required: true
+        type: string
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: true
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+
+      - name: Run prepare_release.py
+        env:
+          PACKAGE: ${{ inputs.package }}
+          VERSION: ${{ inputs.version }}
+        run: python scripts/prepare_release.py --package "$PACKAGE" --version "$VERSION"
+
+      - name: Open version-bump PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE: ${{ inputs.package }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          branch="release/${PACKAGE}-v${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add "${PACKAGE}/CHANGELOG.md" "${PACKAGE}/pyproject.toml"
+          git commit -m "chore(${PACKAGE}): prepare release v${VERSION}"
+          git push origin "$branch"
+          body=$(printf '%s\n' \
+            "Automated version bump for \`${PACKAGE}\` v${VERSION}, produced by the" \
+            "\`Prepare Release\` workflow (\`scripts/prepare_release.py\`)." \
+            "" \
+            "Renames \`## [Unreleased]\` to \`## ${VERSION} — $(date +%F)\`, inserts a" \
+            "fresh empty \`[Unreleased]\` section, and bumps \`pyproject.toml\`." \
+            "" \
+            "Review the CHANGELOG/version diff before merging. Once merged, trigger the" \
+            "\`Release\` workflow with package=\`${PACKAGE}\`, version=\`${VERSION}\`.")
+          gh pr create \
+            --title "chore(${PACKAGE}): prepare release v${VERSION}" \
+            --base main \
+            --head "$branch" \
+            --body "$body"

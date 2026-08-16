@@ -98,21 +98,25 @@ script below, or hand-edited a version heading directly.
 
 ### Cutting a release
 
-Don't hand-edit the version heading or `pyproject.toml`'s version — run:
+Don't hand-edit the version heading or `pyproject.toml`'s version. There are
+two stages, each its own `workflow_dispatch`:
 
-```bash
-python scripts/prepare_release.py --package backend --version 0.3.0
-```
+1. **`Prepare Release`** (`.github/workflows/prepare-release.yml`) — dispatch
+   it with the package and new version (e.g. `backend`, `0.3.0`). It runs
+   `scripts/prepare_release.py`, which renames `## [Unreleased]` to
+   `## 0.3.0 — <today>`, inserts a fresh empty `[Unreleased]` section above
+   it, and bumps `pyproject.toml` — all in one atomic edit, so the two can't
+   drift apart — then opens a PR with that diff for review.
+2. Review and merge the PR like any other change.
+3. **`Release`** (`.github/workflows/release.yml`) — once the bump PR is
+   merged to `main`, dispatch this with the matching package/version. It
+   tags `<package>-v<version>` and publishes a GitHub Release using the
+   matching `CHANGELOG.md` section as the notes.
 
-This renames `## [Unreleased]` to `## 0.3.0 — <today>`, inserts a fresh
-empty `[Unreleased]` section above it, and bumps `pyproject.toml` — all in
-one atomic edit, so the two can't drift apart. Review the diff and commit/PR
-it through the normal flow, same as any other change. Once merged, trigger
-the `Release` workflow (`.github/workflows/release.yml`) with the matching
-version.
-
-The script refuses to run against a stale local checkout (i.e. `git pull`
-first) — otherwise a just-merged PR's `[Unreleased]` entry you don't have
+You can still run `python scripts/prepare_release.py --package backend
+--version 0.3.0` locally and push/PR it by hand instead of step 1 — the
+script refuses to run against a stale local checkout (i.e. `git pull` first)
+either way, otherwise a just-merged PR's `[Unreleased]` entry you don't have
 locally yet can end up silently misfiled under the new version heading once
 you sync back with `main`, instead of staying in the fresh `[Unreleased]`
 section. Pass `--skip-freshness-check` if you're offline and have already
