@@ -165,7 +165,7 @@ def new(
     typer.echo("mvn spring-boot:run")
 
 
-def main():
+def main():  # pragma: no cover
     """Console-script entry point."""
     # The tree preview uses Unicode box-drawing characters; Windows consoles
     # commonly default to a non-UTF-8 codepage (e.g. cp1252), which raises
@@ -176,5 +176,5 @@ def main():
     app()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

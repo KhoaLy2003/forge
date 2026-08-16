@@ -44,8 +44,18 @@ jobs:
       - name: Install project
         run: pip install -e "./backend[dev]"
 
-      - name: Run tests
-        run: pytest backend/tests -v
+      # Gates on core/ + cli.py (the generator's own Python source) — templates/
+      # is Jinja/Java/TS content, not measured code, and isn't included.
+      - name: Run tests with coverage
+        run: pytest backend/tests -v --cov=core --cov=cli --cov-report=term-missing --cov-fail-under=90
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo "### Backend coverage (core/ + cli.py, gate: 90%)"
+            coverage report --format=markdown
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Forge summary
         if: success()

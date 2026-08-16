@@ -11,7 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,6 +49,16 @@ class GlobalExceptionHandlerTest {
     @GetMapping("/probe/boom")
     String boom() {
       throw new RuntimeException("boom");
+    }
+
+    @GetMapping("/probe/optimistic-lock")
+    String optimisticLock() {
+      throw new ObjectOptimisticLockingFailureException("Example", "probe-id");
+    }
+
+    @GetMapping("/probe/data-integrity")
+    String dataIntegrity() {
+      throw new DataIntegrityViolationException("probe constraint violated");
     }
   }
 
@@ -84,5 +96,23 @@ class GlobalExceptionHandlerTest {
         .perform(get("/probe/boom"))
         .andExpect(status().isInternalServerError())
         .andExpect(jsonPath("$.message").value("An unexpected error occurred"));
+  }
+
+  @Test
+  void optimisticLockFailure_returns409() throws Exception {
+    mockMvc
+        .perform(get("/probe/optimistic-lock"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message").value("Conflict detected"))
+        .andExpect(jsonPath("$.data.code").value("OPTIMISTIC_LOCK_CONFLICT"));
+  }
+
+  @Test
+  void dataIntegrityViolation_returns409() throws Exception {
+    mockMvc
+        .perform(get("/probe/data-integrity"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message").value("Data integrity constraint violated"))
+        .andExpect(jsonPath("$.data.code").value("DATA_INTEGRITY_VIOLATION"));
   }
 }

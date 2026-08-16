@@ -17,6 +17,7 @@ import {{ base_package }}.example.entity.Example;
 import {{ base_package }}.example.entity.ExampleStatus;
 import {{ base_package }}.example.mapper.ExampleMapper;
 import {{ base_package }}.example.repository.ExampleRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class ExampleServiceImplTest {
@@ -54,6 +58,35 @@ class ExampleServiceImplTest {
     when(repository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.empty());
 
     assertThrows(ResourceNotFoundException.class, () -> service.findById(id));
+  }
+
+  @Test
+  void findAll_withoutStatusFilter_queriesUnfilteredAndReturnsPage() {
+    Example entity = Example.builder().name("Widget").build();
+    Pageable pageable = PageRequest.of(0, 20);
+    when(repository.findAllByDeletedAtIsNull(any()))
+        .thenReturn(new PageImpl<>(List.of(entity), pageable, 1));
+    when(mapper.toResponse(entity)).thenReturn(ExampleResponse.builder().name("Widget").build());
+
+    var result = service.findAll(0, 20, "createdAt", "DESC", null);
+
+    assertThat(result.getData()).hasSize(1);
+    verify(repository).findAllByDeletedAtIsNull(any());
+    verify(repository, never()).findByStatusAndDeletedAtIsNull(any(), any());
+  }
+
+  @Test
+  void findAll_withStatusFilter_queriesFilteredAndReturnsPage() {
+    Example entity = Example.builder().name("Widget").status(ExampleStatus.ACTIVE).build();
+    Pageable pageable = PageRequest.of(0, 20);
+    when(repository.findByStatusAndDeletedAtIsNull(any(), any()))
+        .thenReturn(new PageImpl<>(List.of(entity), pageable, 1));
+    when(mapper.toResponse(entity)).thenReturn(ExampleResponse.builder().name("Widget").build());
+
+    var result = service.findAll(0, 20, "createdAt", "DESC", ExampleStatus.ACTIVE);
+
+    assertThat(result.getData()).hasSize(1);
+    verify(repository).findByStatusAndDeletedAtIsNull(any(), any());
   }
 
   @Test
@@ -101,6 +134,16 @@ class ExampleServiceImplTest {
   }
 
   @Test
+  void update_whenNotFound_throwsResourceNotFoundException() {
+    UUID id = UUID.randomUUID();
+    UpdateExampleRequest request = UpdateExampleRequest.builder().name("Renamed").build();
+    when(repository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.empty());
+
+    assertThrows(ResourceNotFoundException.class, () -> service.update(id, request));
+    verify(repository, never()).save(any());
+  }
+
+  @Test
   void delete_whenFound_softDeletesAndSaves() {
     UUID id = UUID.randomUUID();
     Example entity = Example.builder().name("Widget").build();
@@ -111,5 +154,14 @@ class ExampleServiceImplTest {
 
     assertThat(entity.isDeleted()).isTrue();
     verify(repository).save(entity);
+  }
+
+  @Test
+  void delete_whenNotFound_throwsResourceNotFoundException() {
+    UUID id = UUID.randomUUID();
+    when(repository.findByIdAndDeletedAtIsNull(id)).thenReturn(Optional.empty());
+
+    assertThrows(ResourceNotFoundException.class, () -> service.delete(id));
+    verify(repository, never()).save(any());
   }
 }

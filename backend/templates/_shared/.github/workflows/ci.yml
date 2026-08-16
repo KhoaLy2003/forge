@@ -24,6 +24,20 @@ jobs:
       - name: Build and test
         run: mvn -B verify
 
+      # jacoco:check (bound to verify above) already fails the build below 90% line
+      # coverage; this step only makes the number visible on the run summary page.
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f target/site/jacoco/jacoco.csv ]; then
+            {
+              echo "### Code coverage (gate: 90% lines)"
+              awk -F',' 'NR>1 {miss+=$8; cov+=$9} END {printf "**Overall line coverage: %.1f%%** (%d/%d lines)\n", 100*cov/(miss+cov), cov, miss+cov}' target/site/jacoco/jacoco.csv
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Code coverage: report not generated (build failed before tests ran)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   codeql:
     runs-on: ubuntu-latest
     permissions:

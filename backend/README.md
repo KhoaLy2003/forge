@@ -25,9 +25,14 @@ below.
   a Testcontainers-backed repository test *(`base-layered` only)* — running
   the generated project's own `mvn test` requires Docker, but Forge's own
   validation only runs `mvn test-compile`, which doesn't
+- A JaCoCo coverage gate (90% overall line coverage) bound to `mvn verify`,
+  with a per-run coverage summary in CI — framework bootstrap/bean-wiring
+  code (`main()`, `JpaAuditingConfig`, `OpenApiConfig`) is excluded as
+  untestable boilerplate, everything else counts
 - A GitHub Actions CI workflow (`.github/workflows/ci.yml`): `mvn verify`
-  (build, test, Spotless format check), CodeQL, a Trivy filesystem scan, PR
-  dependency review, and zizmor workflow linting — the dependency-review job
+  (build, test, Spotless format check, coverage gate), CodeQL, a Trivy
+  filesystem scan, PR dependency review, and zizmor workflow linting — the
+  dependency-review job
   needs Dependabot/vulnerability alerts enabled on your GitHub repo first
 
 ## Install
