@@ -1,6 +1,6 @@
-# Changelog
-
 ## [Unreleased]
+
+## 0.2.0 — 2026-08-16
 
 - Generated projects now ship a Vitest + React Testing Library test suite
   covering every component and page in the template, gated at 80% overall
