@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+- Added a `--template` flag (`base` [default] / `minimal`) plus the registry
+  mechanism behind it: `templates/base/` was split into `templates/_shared/`
+  (the file tree) and per-template `manifest.py` exclude-glob manifests,
+  discovered by a new `core/templates.py`. `minimal` drops the sample CRUD
+  dashboard, its API client, and TanStack Query hooks while keeping the full
+  Shadcn component set and the `/components` showcase page; `package.json`,
+  `App.tsx`, and `nav-sidebar.tsx` gained `{% if include_data_fetching %}`
+  conditionals for the content/wiring that must differ even though those
+  files themselves are shared. `--template` is deliberately not part of the
+  interactive wizard and always defaults to `base`, so existing
+  non-interactive, flag-complete invocations are unaffected.
 - Generated projects now ship a GitHub Actions CI workflow
   (`.github/workflows/ci.yml`): `npm install && npm run build` (typecheck +
   build; no separate test step, since the scaffold has no test runner

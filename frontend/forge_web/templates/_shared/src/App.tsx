@@ -1,17 +1,23 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+{% if include_data_fetching %}
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+{% endif %}
 
 import { AppShell } from "@/components/common/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 import { EmptyState } from "@/pages/static/empty-state";
 import LandingPage from "@/pages/landing/landing-page";
+{% if include_data_fetching %}
 import DashboardPage from "@/pages/dashboard/dashboard-page";
+{% endif %}
 import ComponentShowcasePage from "@/pages/showcase/component-showcase-page";
 import ErrorPage from "@/pages/static/error-page";
 import LoadingPage from "@/pages/static/loading-page";
 import NotFoundPage from "@/pages/static/not-found-page";
 
+{% if include_data_fetching %}
 const queryClient = new QueryClient();
+{% endif %}
 
 const router = createBrowserRouter([
   {
@@ -23,6 +29,7 @@ const router = createBrowserRouter([
     ),
     errorElement: <ErrorPage />,
   },
+{% if include_data_fetching %}
   {
     path: "/dashboard",
     element: (
@@ -32,6 +39,7 @@ const router = createBrowserRouter([
     ),
     errorElement: <ErrorPage />,
   },
+{% endif %}
   {
     path: "/components",
     element: (
@@ -76,9 +84,16 @@ const router = createBrowserRouter([
 
 export default function App() {
   return (
+{% if include_data_fetching %}
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       <Toaster />
     </QueryClientProvider>
+{% else %}
+    <>
+      <RouterProvider router={router} />
+      <Toaster />
+    </>
+{% endif %}
   );
 }

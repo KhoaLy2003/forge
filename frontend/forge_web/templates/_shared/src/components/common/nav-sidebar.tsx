@@ -1,11 +1,17 @@
 import { NavLink } from "react-router-dom";
+{% if include_data_fetching %}
 import { House, LayoutGrid, SquareStack } from "lucide-react";
+{% else %}
+import { House, SquareStack } from "lucide-react";
+{% endif %}
 
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { to: "/", label: "Home", icon: House, end: true },
+{% if include_data_fetching %}
   { to: "/dashboard", label: "Dashboard", icon: LayoutGrid, end: false },
+{% endif %}
   { to: "/components", label: "Components", icon: SquareStack, end: false },
 ] as const;
 

@@ -13,11 +13,16 @@ Prompts for anything not passed as a flag:
 | `--name`         | Project name                   | `my-dashboard`              |
 | `--path`         | Target path (parent directory) | `C:\projects`               |
 | `--api-base-url` | API base URL                   | `http://localhost:8080/api` |
+| `--template`     | *(not wizard-prompted — see below)* | `base` or `minimal`      |
+
+`--template` is not part of the wizard/prompt table above — it always
+defaults to `base` if you don't pass it, so an invocation with every other
+flag supplied still runs non-interactively without a prompt.
 
 Fully non-interactive example:
 
 ```bash
-.venv\Scripts\forge-web new --name my-dashboard --path C:\projects --api-base-url http://localhost:8080/api
+.venv\Scripts\forge-web new --name my-dashboard --path C:\projects --api-base-url http://localhost:8080/api --template minimal
 ```
 
 Mixed — only the flags you omit get prompted:

@@ -1,8 +1,9 @@
 # Forge Web
 
 Forge Web scaffolds a ready-to-build React + TypeScript + Vite + Shadcn/ui
-dashboard from a single template, so starting a new frontend app is faster
-than copying an old project by hand.
+dashboard, so starting a new frontend app is faster than copying an old
+project by hand. Two templates are available via `--template` — see
+[Templates](#templates) below.
 
 ## What it generates
 
@@ -11,13 +12,14 @@ than copying an old project by hand.
   tabs, select, dialog, alert-dialog, dropdown-menu, toast, form, avatar,
   badge, skeleton) — every value themed from `docs/DESIGN.md`'s design
   tokens via `src/styles/theme.css`, never hardcoded
-- A sample CRUD dashboard (`/`) wired end-to-end through a mock/real API
-  client switched by `VITE_API_MODE`, as a pattern to copy for real features
 - A component showcase page (`/components`) rendering every primitive with
   mock data, so you can see the whole design system at a glance
+- A sample CRUD dashboard (`/`) wired end-to-end through a mock/real API
+  client switched by `VITE_API_MODE`, as a pattern to copy for real features,
+  plus TanStack Query hooks and react-hook-form + zod forms *(`base`
+  template only — see [Templates](#templates))*
 - Static pages: 404, error, loading, empty-state
-- TanStack Query hooks, react-hook-form + zod forms, date/currency
-  formatters
+- Date/currency formatters
 - A generated `.env` (pre-filled from your answers) alongside a documented
   `.env.example`
 - A GitHub Actions CI workflow (`.github/workflows/ci.yml`): `npm install &&
@@ -34,6 +36,21 @@ py -m venv .venv
 .venv\Scripts\pip install -e "./frontend[dev]"
 ```
 
+## Templates
+
+| | `base` (default) | `minimal` |
+|---|---|---|
+| Routing, theme tokens, static pages | included | included |
+| Shadcn component set (all 16) + `/components` showcase | included | included |
+| Sample CRUD dashboard (`/`) | included | excluded |
+| Mock/real API client, TanStack Query hooks | included | excluded |
+| `zod` + `@hookform/resolvers` deps | included | excluded |
+| `react-hook-form` + `@tanstack/react-table` deps | included | included — the showcase page's live demo needs both, regardless of template |
+
+Pick one with `--template base` or `--template minimal`; the flag defaults
+to `base` if omitted (it is **not** part of the interactive wizard — pass it
+explicitly, or accept the default, the same way you'd handle `--verbose`).
+
 ## Usage
 
 ```bash
@@ -44,7 +61,7 @@ Run without flags to be walked through an interactive wizard (project name,
 target path, API base URL). Any flag you pass skips its prompt:
 
 ```bash
-.venv\Scripts\forge-web new --name my-dashboard --path C:\projects --api-base-url http://localhost:8080/api
+.venv\Scripts\forge-web new --name my-dashboard --path C:\projects --api-base-url http://localhost:8080/api --template minimal
 ```
 
 Forge Web shows a preview of the file tree it's about to write and asks for
