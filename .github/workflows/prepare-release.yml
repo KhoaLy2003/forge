@@ -52,7 +52,16 @@ jobs:
           git add "${PACKAGE}/CHANGELOG.md" "${PACKAGE}/pyproject.toml"
           git commit -m "chore(${PACKAGE}): prepare release v${VERSION}"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}"
-          git push origin "$branch"
+          # Re-runs for the same package/version (e.g. after a prior failure)
+          # must not fail just because the branch already exists remotely.
+          git push --force origin "$branch"
+
+          existing_pr=$(gh pr list --head "$branch" --base main --state open --json url --jq '.[0].url // empty')
+          if [ -n "$existing_pr" ]; then
+            echo "PR already open for $branch: $existing_pr"
+            exit 0
+          fi
+
           body=$(printf '%s\n' \
             "Automated version bump for \`${PACKAGE}\` v${VERSION}, produced by the" \
             "\`Prepare Release\` workflow (\`scripts/prepare_release.py\`)." \
