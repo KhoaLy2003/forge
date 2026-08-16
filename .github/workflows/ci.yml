@@ -87,8 +87,18 @@ jobs:
       - name: Install project
         run: pip install -e "./frontend[dev]"
 
-      - name: Run tests
-        run: pytest frontend/tests -v
+      # Gates on forge_web/core/ + cli.py (the generator's own Python source) —
+      # forge_web/templates/ is Jinja/React/TS content, not measured code.
+      - name: Run tests with coverage
+        run: pytest frontend/tests -v --cov=forge_web.core --cov=forge_web.cli --cov-report=term-missing --cov-fail-under=90
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo "### Frontend coverage (forge_web/core/ + cli.py, gate: 90%)"
+            coverage report --format=markdown
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Forge summary
         if: success()

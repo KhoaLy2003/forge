@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- This repo's own CI now runs `pytest --cov=forge_web.core --cov=forge_web.cli`,
+  gated at 90% coverage of the generator's own Python source (not
+  `templates/`). A coverage-summary step writes the per-file breakdown to
+  the job summary. `main()`'s console-encoding boilerplate is excluded via
+  `# pragma: no cover`; new tests were added for previously-untested CLI
+  failure branches (build/typecheck/design-token/spacing-collision
+  failures, and the render-exception path) to close a real gap this
+  surfaced, rather than lowering the bar to hide it.
 - Added a `--template` flag (`base` [default] / `minimal`) plus the registry
   mechanism behind it: `templates/base/` was split into `templates/_shared/`
   (the file tree) and per-template `manifest.py` exclude-glob manifests,

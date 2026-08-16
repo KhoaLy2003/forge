@@ -243,3 +243,148 @@ def test_new_with_minimal_template_excludes_api_client(tmp_path, monkeypatch):
     target_dir = tmp_path / "out" / "my-dashboard"
     assert result.exit_code == 0, result.output
     assert not (target_dir / "src" / "lib" / "api-client").exists()
+
+
+def test_new_deletes_folder_on_render_failure_when_confirmed(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+
+    def raise_on_render(*args, **kwargs):
+        (tmp_path / "out" / "my-dashboard").mkdir(parents=True)
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(cli, "render_tree", raise_on_render)
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+            "--verbose",
+        ],
+        input="y\ny\n",
+    )
+
+    assert result.exit_code == 1
+    assert "failed to write project files" in result.output
+    assert "Traceback" in result.output
+    assert not (tmp_path / "out" / "my-dashboard").exists()
+
+
+def test_new_reports_build_failure(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+    monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(False, "build failed")
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+        ],
+        input="y\nn\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Validation failed" in result.output
+    assert (tmp_path / "out" / "my-dashboard").exists()
+
+
+def test_new_reports_typecheck_failure(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+    monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli, "run_typecheck", lambda target_dir: ValidationResult(False, "typecheck failed")
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+        ],
+        input="y\nn\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Validation failed" in result.output
+
+
+def test_new_reports_hardcoded_design_values_failure(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+    monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli, "run_typecheck", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli,
+        "check_no_hardcoded_design_values",
+        lambda target_dir: ValidationResult(False, "hardcoded value found"),
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+        ],
+        input="y\nn\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Validation failed" in result.output
+
+
+def test_new_reports_spacing_scale_collision_failure(tmp_path, monkeypatch):
+    template_dir = make_fixture_template(tmp_path / "src")
+    monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
+    monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
+    monkeypatch.setattr(
+        cli, "run_build", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli, "run_typecheck", lambda target_dir: ValidationResult(True, "ok")
+    )
+    monkeypatch.setattr(
+        cli,
+        "check_no_hardcoded_design_values",
+        lambda target_dir: ValidationResult(True, "ok"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "check_no_spacing_scale_width_collisions",
+        lambda target_dir: ValidationResult(False, "collision found"),
+    )
+
+    result = runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "my-dashboard",
+            "--path", str(tmp_path / "out"),
+            "--api-base-url", "http://localhost:8080/api",
+        ],
+        input="y\nn\n",
+    )
+
+    assert result.exit_code == 1
+    assert "Validation failed" in result.output
