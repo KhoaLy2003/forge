@@ -1,0 +1,52 @@
+# Five entities exercising every relation kind and every field type.
+#   - Order is an SQL reserved word, so it carries an explicit `table:` override.
+#   - Customer <-> Product form a cycle through OPTIONAL relations (favoriteProduct / lastBuyer).
+#   - Customer.wishlist is a unidirectional one-to-many (the FK lives on Product).
+#   - Order.customer / Customer.orders is a bidirectional pair declared with `inverse:`.
+#   - Order.items / OrderItem.order is a bidirectional composition declared with `mappedBy`.
+#   - Product.categories is a many-to-many; Category.featuredProduct is a one-to-one.
+#   - active/status/stock/quantity carry defaults (Java initialisers + SQL DEFAULT).
+entities:
+  Customer:
+    fields:
+      name: { type: string, length: 100, required: true }
+      email: { type: string, length: 150, unique: true, required: true }
+      active: { type: boolean, required: true, default: true }
+      joinedOn: { type: date }
+      externalId: { type: uuid }
+      tier: { type: enum, values: [BRONZE, SILVER, GOLD], required: true }
+    relations:
+      favoriteProduct: { type: many-to-one, target: Product }
+      wishlist: { type: one-to-many, target: Product }
+  Order:
+    table: customer_orders
+    fields:
+      number: { type: string, length: 30, unique: true, required: true }
+      total: { type: decimal, precision: 12, scale: 2, required: true }
+      placedAt: { type: instant, required: true }
+      note: { type: string, text: true }
+      status: { type: enum, values: [NEW, PAID, SHIPPED], default: NEW }
+    relations:
+      customer: { type: many-to-one, target: Customer, required: true, inverse: orders }
+      items: { type: one-to-many, target: OrderItem, mappedBy: order, cascade: all, orphanRemoval: true }
+  OrderItem:
+    fields:
+      quantity: { type: int, required: true, default: 1 }
+      unitPrice: { type: decimal, precision: 10, scale: 2, required: true }
+    relations:
+      order: { type: many-to-one, target: Order, required: true }
+      product: { type: many-to-one, target: Product, required: true }
+  Product:
+    fields:
+      sku: { type: string, length: 40, unique: true, required: true }
+      title: { type: string, required: true }
+      stock: { type: long, default: 0 }
+      available: { type: boolean }
+    relations:
+      categories: { type: many-to-many, target: Category }
+      lastBuyer: { type: many-to-one, target: Customer }
+  Category:
+    fields:
+      label: { type: string, length: 80, required: true }
+    relations:
+      featuredProduct: { type: one-to-one, target: Product }

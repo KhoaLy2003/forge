@@ -3,8 +3,9 @@
 import re
 from pathlib import Path
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, PrivateAttr, field_validator, model_validator
 
+from core.entity_spec import EntitySpec
 from core.templates import discover_templates
 
 PROJECT_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
@@ -80,6 +81,9 @@ class ForgeConfig(BaseModel):
     group_id: str
     artifact_id: str
     template: str = "base-layered"
+    entities: dict[str, EntitySpec] = {}
+
+    _model: object = PrivateAttr(default=None)
 
     @field_validator("project_name")
     @classmethod
@@ -100,6 +104,37 @@ class ForgeConfig(BaseModel):
     @classmethod
     def _check_template(cls, v: str) -> str:
         return validate_template(v)
+
+    @model_validator(mode="after")
+    def _check_entities(self) -> "ForgeConfig":
+        # entity_rules imports JAVA_RESERVED_WORDS from this module, so import it lazily here
+        from core.entity_rules import resolve_model, topological_order, validate_names, validate_relations
+
+        if not self.entities:
+            self._model = resolve_model({})
+            return self
+        errors: list[str] = []
+        if self.template == "minimal":
+            errors.append(
+                "entities require the 'base-layered' template (the 'minimal' template has no Liquibase); "
+                "use --template base-layered or remove the entities"
+            )
+        errors += validate_names(self.entities) + validate_relations(self.entities)
+        if not errors:
+            try:
+                topological_order(self.entities)
+            except ValueError as exc:
+                errors += str(exc).splitlines()
+        if errors:
+            lines = [f"  - {e}" for e in errors]
+            raise ValueError("\n".join(["Invalid entity model:", *lines]))
+        self._model = resolve_model(self.entities)
+        return self
+
+    @property
+    def has_entities(self) -> bool:
+        """Whether any entities were declared (they replace the Example slice)."""
+        return bool(self.entities)
 
     @property
     def target_dir(self) -> Path:
@@ -126,8 +161,20 @@ class ForgeConfig(BaseModel):
         """Whether the selected template retains Liquibase migrations and Testcontainers."""
         return self.template != "minimal"
 
+    @property
+    def include_monitoring(self) -> bool:
+        """Whether the selected template ships the metrics endpoint and monitoring stack files."""
+        return self.template != "minimal"
+
     def template_context(self) -> dict:
-        """Build the Jinja2 rendering context used by the template renderer."""
+        """Build the Jinja2 rendering context used by the template renderer.
+
+        Entity keys (see ``core/entity_model.py``): ``has_entities``; ``entities`` (ResolvedEntity list in
+        dependency order); ``join_tables``; ``fk_constraints`` (deferred FKs for the final constraints
+        changelog); ``changelog_start`` (3); ``changelog_files`` (ordered Liquibase includes for the master); ``constraints_changelog_file`` (name of the
+        final ``NNN-add-constraints.sql`` when deferred FKs exist, else None).
+        """
+        model = self._model
         return {
             "project_name": self.project_name,
             "group_id": self.group_id,
@@ -137,4 +184,14 @@ class ForgeConfig(BaseModel):
             "app_class_name": self.app_class_name,
             "template": self.template,
             "use_liquibase": self.use_liquibase,
+            "include_monitoring": self.include_monitoring,
+            "has_entities": self.has_entities,
+            "entities": model.entities,
+            "join_tables": model.join_tables,
+            "fk_constraints": model.fk_constraints,
+            "changelog_start": model.changelog_start,
+            "changelog_files": model.changelog_files,
+            "constraints_changelog_file": (
+                model.changelog_files[-1] if model.fk_constraints else None
+            ),
         }

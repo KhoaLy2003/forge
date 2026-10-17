@@ -137,3 +137,26 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
         shell: bash
+{% if include_monitoring %}
+  # Validates the monitoring files with the real tools. These need Docker, which CI has and a
+  # developer machine may not; Forge itself only checks them statically at generation time.
+  observability-config:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Check Prometheus config
+        run: |
+          docker run --rm --entrypoint promtool             -v "$PWD/observability/prometheus:/etc/prometheus:ro"             prom/prometheus:v3.1.0 check config /etc/prometheus/prometheus.yml
+
+      - name: Check Prometheus alert rules
+        run: |
+          docker run --rm --entrypoint promtool             -v "$PWD/observability/prometheus:/etc/prometheus:ro"             prom/prometheus:v3.1.0 check rules /etc/prometheus/alerts.yml
+
+      - name: Validate the monitoring compose overlay
+        run: docker compose -f docker-compose.yml -f docker-compose.observability.yml config -q
+{% endif %}

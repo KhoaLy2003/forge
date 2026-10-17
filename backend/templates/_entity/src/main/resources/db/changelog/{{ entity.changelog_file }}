@@ -1,0 +1,57 @@
+{%- set e = entity -%}
+{%- set cols = ['id', 'version', 'created_at', 'updated_at', 'deleted_at'] -%}
+{%- set types = ['TIMESTAMP WITH TIME ZONE'] -%}
+{%- for f in e.fields -%}
+{%- set _ = cols.append(f.column) -%}
+{%- set _ = types.append(f.sql_type) -%}
+{%- endfor -%}
+{%- for fk in e.foreign_keys -%}
+{%- set _ = cols.append(fk.column) -%}
+{%- endfor -%}
+{%- set w = cols | map('length') | max -%}
+{%- set tw = types | map('length') | max -%}
+{%- set inline_fks = e.foreign_keys | rejectattr('deferred') | list -%}
+-- liquibase formatted sql
+
+-- changeset forge:{{ 1700000000000 + e.changelog_index }}
+-- comment: Create the {{ e.table }} table
+CREATE TABLE {{ e.table }}
+(
+    {{ 'id'.ljust(w) }} UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+{%- for f in e.fields %}
+{%- set tail = (' NOT NULL' if f.required else '') ~ ((' DEFAULT ' ~ f.default_sql) if f.default_sql is not none else '') %}
+    {{ f.column.ljust(w) }} {{ (f.sql_type.ljust(tw) ~ tail) if tail else f.sql_type }},
+{%- endfor %}
+{%- for fk in e.foreign_keys %}
+    {{ fk.column.ljust(w) }} {{ ('UUID'.ljust(tw) ~ ' NOT NULL') if fk.required else 'UUID' }},
+{%- endfor %}
+    {{ 'version'.ljust(w) }} {{ 'BIGINT'.ljust(tw) }} NOT NULL DEFAULT 0,
+    {{ 'created_at'.ljust(w) }} TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    {{ 'updated_at'.ljust(w) }} TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    {{ 'deleted_at'.ljust(w) }} TIMESTAMP WITH TIME ZONE{{ ',' if inline_fks else '' }}
+{%- for fk in inline_fks %}
+    CONSTRAINT {{ fk.constraint_name }} FOREIGN KEY ({{ fk.column }})
+        REFERENCES {{ fk.ref_table }} ({{ fk.ref_column }}) ON DELETE {{ fk.on_delete }}{{ ',' if not loop.last else '' }}
+{%- endfor %}
+);
+{#- unique indexes only cover live rows, so a soft-deleted value can be reused #}
+{%- for f in e.fields if f.unique %}
+{%- if loop.first %}
+{{ '' }}
+{%- endif %}
+CREATE UNIQUE INDEX {{ f.unique_name }} ON {{ e.table }} ({{ f.column }}) WHERE deleted_at IS NULL;
+{%- endfor %}
+{%- for fk in e.foreign_keys if fk.unique %}
+{%- if loop.first and not (e.fields | selectattr('unique') | list) %}
+{{ '' }}
+{%- endif %}
+CREATE UNIQUE INDEX {{ fk.unique_name }} ON {{ e.table }} ({{ fk.column }}) WHERE deleted_at IS NULL;
+{%- endfor %}
+{%- for fk in inline_fks if fk.index_name %}
+{%- if loop.first %}
+{{ '' }}
+{%- endif %}
+CREATE INDEX {{ fk.index_name }} ON {{ e.table }} ({{ fk.column }});
+{%- endfor %}
+
+-- rollback DROP TABLE {{ e.table }};
