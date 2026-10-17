@@ -66,10 +66,9 @@ To add a new template:
    or `tsc --noEmit` fails).
 3. `discover_templates()` (`core/templates.py` in each package) picks up the
    new `manifest.py` automatically — no registry to hand-edit.
-4. Do **not** add the new template name to `FIELD_PROMPTS` in `core/wizard.py`
-   — `--template` is deliberately not wizard-prompted (see `cli.py`'s
-   `--template` default) so that existing non-interactive, flag-complete
-   invocations never start blocking on a new prompt.
+4. Nothing to register in the CLI: the template name is accepted wherever
+   `template:` appears in `forge.yaml` (validated against `discover_templates()`),
+   and `forge new` never prompts, so there is no prompt list to update.
 5. Add a manifest-sanity assertion and extend the parametrized
    `test_generation.py` — see `backend/tests/test_template_manifests.py` /
    `frontend/tests/test_template_manifests.py` for the pattern.
