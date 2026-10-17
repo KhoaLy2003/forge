@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
 
+import yaml
 from typer.testing import CliRunner
 
 from forge_web import cli
@@ -7,22 +9,30 @@ from forge_web.core.validator import ValidationResult
 
 runner = CliRunner()
 
+API_BASE_URL = "http://localhost:8080/api"
+
+
+def _invoke_new(folder, *, name, target, template=None, verbose=False, input_text=None):
+    """Write forge-web.yaml into ``folder`` and run `forge-web new` from that folder."""
+    data = {"project_name": name, "target_path": str(target), "api_base_url": API_BASE_URL}
+    if template is not None:
+        data["template"] = template
+    (folder / "forge-web.yaml").write_text(yaml.safe_dump(data), encoding="utf-8")
+    args = ["new"] + (["--verbose"] if verbose else [])
+    previous = os.getcwd()
+    os.chdir(folder)
+    try:
+        return runner.invoke(cli.app, args, input=input_text)
+    finally:
+        os.chdir(previous)
+
 
 def test_new_aborts_if_target_exists(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "SHARED_DIR", cli.SHARED_DIR)
     existing = tmp_path / "my-dashboard"
     existing.mkdir()
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path),
-            "--api-base-url", "http://localhost:8080/api",
-            "--template", "base",
-        ],
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path), template="base")
 
     assert result.exit_code == 1
     assert "already exists" in result.output
@@ -31,32 +41,14 @@ def test_new_aborts_if_target_exists(tmp_path, monkeypatch):
 def test_new_errors_if_template_dir_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "SHARED_DIR", tmp_path / "does-not-exist")
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path),
-            "--api-base-url", "http://localhost:8080/api",
-            "--template", "base",
-        ],
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path), template="base")
 
     assert result.exit_code == 1
     assert "template directory not found" in result.output
 
 
 def test_new_errors_on_unknown_template(tmp_path):
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path),
-            "--api-base-url", "http://localhost:8080/api",
-            "--template", "does-not-exist",
-        ],
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path), template="does-not-exist")
 
     assert result.exit_code != 0
     assert "base" in result.output and "minimal" in result.output
@@ -93,27 +85,15 @@ def test_new_generates_project_on_confirm(tmp_path, monkeypatch):
         lambda target_dir: ValidationResult(True, "ok"),
     )
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path / "out"),
-            "--api-base-url", "http://localhost:8080/api",
-            "--template", "base",
-        ],
-        input="y\n",
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), template="base", input_text="y\n")
 
     assert result.exit_code == 0, result.output
     assert (tmp_path / "out" / "my-dashboard" / "package.json").exists()
     assert "Project generated successfully" in result.output
 
 
-def test_new_defaults_template_when_flag_omitted(tmp_path, monkeypatch):
-    """A flag-complete invocation that omits --template must still run non-interactively
-    to completion (no wizard prompt for template) — regression test for a bug where
-    --template had no default and always fell through to a blocking wizard prompt."""
+def test_new_defaults_template_when_file_omits_it(tmp_path, monkeypatch):
+    """A forge-web.yaml without a template key generates the default 'base' template."""
     template_dir = make_fixture_template(tmp_path / "src")
     monkeypatch.setattr(cli, "SHARED_DIR", template_dir)
     monkeypatch.setattr(cli, "EXPECTED_STRUCTURAL_PATHS", [Path("package.json")])
@@ -129,16 +109,7 @@ def test_new_defaults_template_when_flag_omitted(tmp_path, monkeypatch):
         lambda target_dir: ValidationResult(True, "ok"),
     )
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path / "out"),
-            "--api-base-url", "http://localhost:8080/api",
-        ],
-        input="y\n",
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), input_text="y\n")
 
     assert result.exit_code == 0, result.output
     assert (tmp_path / "out" / "my-dashboard" / "package.json").exists()
@@ -160,17 +131,7 @@ def test_new_generates_dot_env_from_env_example(tmp_path, monkeypatch):
         lambda target_dir: ValidationResult(True, "ok"),
     )
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path / "out"),
-            "--api-base-url", "http://localhost:8080/api",
-            "--template", "base",
-        ],
-        input="y\n",
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), template="base", input_text="y\n")
 
     assert result.exit_code == 0, result.output
     target_dir = tmp_path / "out" / "my-dashboard"
@@ -191,17 +152,7 @@ def test_new_cancels_on_no_confirm(tmp_path):
     original_shared_dir = cli_module.SHARED_DIR
     cli_module.SHARED_DIR = template_dir
     try:
-        result = runner.invoke(
-            cli_module.app,
-            [
-                "new",
-                "--name", "my-dashboard",
-                "--path", str(tmp_path / "out"),
-                "--api-base-url", "http://localhost:8080/api",
-                "--template", "base",
-            ],
-            input="n\n",
-        )
+        result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), template="base", input_text="n\n")
     finally:
         cli_module.SHARED_DIR = original_shared_dir
 
@@ -228,17 +179,7 @@ def test_new_with_minimal_template_excludes_api_client(tmp_path, monkeypatch):
         lambda target_dir: ValidationResult(True, "ok"),
     )
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path / "out"),
-            "--api-base-url", "http://localhost:8080/api",
-            "--template", "minimal",
-        ],
-        input="y\n",
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), template="minimal", input_text="y\n")
 
     target_dir = tmp_path / "out" / "my-dashboard"
     assert result.exit_code == 0, result.output
@@ -255,17 +196,7 @@ def test_new_deletes_folder_on_render_failure_when_confirmed(tmp_path, monkeypat
 
     monkeypatch.setattr(cli, "render_tree", raise_on_render)
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path / "out"),
-            "--api-base-url", "http://localhost:8080/api",
-            "--verbose",
-        ],
-        input="y\ny\n",
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), verbose=True, input_text="y\ny\n")
 
     assert result.exit_code == 1
     assert "failed to write project files" in result.output
@@ -281,16 +212,7 @@ def test_new_reports_build_failure(tmp_path, monkeypatch):
         cli, "run_build", lambda target_dir: ValidationResult(False, "build failed")
     )
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path / "out"),
-            "--api-base-url", "http://localhost:8080/api",
-        ],
-        input="y\nn\n",
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), input_text="y\nn\n")
 
     assert result.exit_code == 1
     assert "Validation failed" in result.output
@@ -308,16 +230,7 @@ def test_new_reports_typecheck_failure(tmp_path, monkeypatch):
         cli, "run_typecheck", lambda target_dir: ValidationResult(False, "typecheck failed")
     )
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path / "out"),
-            "--api-base-url", "http://localhost:8080/api",
-        ],
-        input="y\nn\n",
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), input_text="y\nn\n")
 
     assert result.exit_code == 1
     assert "Validation failed" in result.output
@@ -339,16 +252,7 @@ def test_new_reports_hardcoded_design_values_failure(tmp_path, monkeypatch):
         lambda target_dir: ValidationResult(False, "hardcoded value found"),
     )
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path / "out"),
-            "--api-base-url", "http://localhost:8080/api",
-        ],
-        input="y\nn\n",
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), input_text="y\nn\n")
 
     assert result.exit_code == 1
     assert "Validation failed" in result.output
@@ -375,16 +279,7 @@ def test_new_reports_spacing_scale_collision_failure(tmp_path, monkeypatch):
         lambda target_dir: ValidationResult(False, "collision found"),
     )
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "my-dashboard",
-            "--path", str(tmp_path / "out"),
-            "--api-base-url", "http://localhost:8080/api",
-        ],
-        input="y\nn\n",
-    )
+    result = _invoke_new(tmp_path, name="my-dashboard", target=str(tmp_path / "out"), input_text="y\nn\n")
 
     assert result.exit_code == 1
     assert "Validation failed" in result.output

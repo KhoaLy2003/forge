@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+- **Breaking: file-only configuration.** `forge-web new` takes no options any
+  more. Project parameters come only from `forge-web.yaml` in the current
+  folder. The `--name`, `--path`, `--api-base-url` and `--template` options and
+  the interactive wizard are removed. New `forge-web init` writes a commented
+  starter `forge-web.yaml` (refuses to overwrite). `forge-web new` reports every
+  problem in the file at once, rejects unknown keys, prints the resolved
+  values, and never prompts. Scripts and CI that passed flags must write a
+  `forge-web.yaml` first. The READMEs were rewritten around the new workflow.
+
 ## 0.2.0 — 2026-08-16
 
 - Generated projects now ship a Vitest + React Testing Library test suite

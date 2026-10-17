@@ -1,4 +1,4 @@
-"""Forge Web's Typer entry point: wires the wizard, preview, renderer, and validator into `forge-web new`."""
+"""Forge Web's Typer entry point: `forge-web init` writes forge-web.yaml, `forge-web new` generates the project it describes."""
 
 import shutil
 import sys
@@ -6,10 +6,9 @@ import traceback
 from pathlib import Path
 
 import typer
-from pydantic import ValidationError
 
-from forge_web.core.config_schema import ForgeWebConfig
 from forge_web.core.progress import step
+from forge_web.core.project_config import CONFIG_FILENAME, MissingConfigError, build_config, write_starter
 from forge_web.core.renderer import render_tree, resolve_tree
 from forge_web.core.templates import SHARED_DIR, discover_templates, filter_excluded_paths
 from forge_web.core.tree_preview import confirm, format_tree
@@ -20,7 +19,6 @@ from forge_web.core.validator import (
     run_build,
     run_typecheck,
 )
-from forge_web.core.wizard import collect_params
 
 app = typer.Typer()
 
@@ -84,25 +82,35 @@ EXPECTED_STRUCTURAL_PATHS: list[Path] = [
 
 
 @app.command()
-def new(
-    project_name: str = typer.Option(None, "--name"),
-    target_path: str = typer.Option(None, "--path"),
-    api_base_url: str = typer.Option(None, "--api-base-url"),
-    template: str = typer.Option("base", "--template"),
-    verbose: bool = typer.Option(False, "--verbose"),
-):
-    """Scaffold a new frontend project: collect params, preview, render, then validate."""
-    overrides = {
-        "project_name": project_name,
-        "target_path": target_path,
-        "api_base_url": api_base_url,
-        "template": template,
-    }
+def init(verbose: bool = typer.Option(False, "--verbose")):
+    """Write a commented forge-web.yaml into the current folder. Edit it, then run `forge-web new`."""
+    path = Path.cwd() / CONFIG_FILENAME
     try:
-        config = collect_params(overrides)
-    except ValidationError as exc:
+        write_starter(path)
+    except FileExistsError as exc:
         typer.echo(f"Error: {exc}")
         raise typer.Exit(code=1)
+    typer.echo(f"Created {path}. Edit it, then run \"forge-web new\".")
+
+
+@app.command()
+def new(verbose: bool = typer.Option(False, "--verbose")):
+    """Generate the project described by ./forge-web.yaml: preview, render, then validate."""
+    path = Path.cwd() / CONFIG_FILENAME
+    try:
+        config = build_config(path)
+    except MissingConfigError:
+        typer.echo(f'No {CONFIG_FILENAME} found in {Path.cwd()}. Run "forge-web init" first.')
+        raise typer.Exit(code=1)
+    except ValueError as exc:
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+
+    typer.echo(f"Config:   {path}")
+    typer.echo(f"Project:  {config.project_name}")
+    typer.echo(f"Target:   {config.target_dir}")
+    typer.echo(f"API URL:  {config.api_base_url}")
+    typer.echo(f"Template: {config.template}")
 
     if config.target_dir.exists():
         typer.echo(f"Error: target directory already exists: {config.target_dir}")
