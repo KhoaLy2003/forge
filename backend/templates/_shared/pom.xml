@@ -92,6 +92,22 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
+{% if use_liquibase %}
+    <!-- Notifications: JavaMailSender for the email channel. It stays inactive until app.mail.host
+         is set, so a fresh project runs without any mail server. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+{% endif %}
+{% if include_monitoring %}
+    <!-- Metrics: Micrometer's Prometheus registry renders the actuator meters (HTTP, JVM, Hikari)
+         in the Prometheus text format at /actuator/prometheus on the management port. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
+{% endif %}
 
     <!-- Boilerplate reduction: Lombok generates getters/setters/constructors at compile
          time so entity/DTO classes stay short, and MapStruct generates the code that

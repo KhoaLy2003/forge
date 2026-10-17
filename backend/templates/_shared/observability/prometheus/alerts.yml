@@ -1,0 +1,79 @@
+# Starting-point alerts for {{ artifact_id }}. Thresholds are examples, not universal defaults: tune
+# them to your traffic, baseline and SLOs (docs/observability/runbook.md). Ratio alerts produce no
+# data when there is no traffic; for low-traffic services prefer absolute counts or longer windows.
+#
+# Every alert carries severity + team labels and impact / first_checks / runbook annotations so the
+# person paged knows what is affected, what to look at first and where the procedure lives.
+groups:
+  - name: {{ artifact_id }}.rules
+    rules:
+      - alert: ServiceDown
+        expr: up{service="{{ artifact_id }}"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: {{ project_name }}
+        annotations:
+          summary: "{{ artifact_id }} metrics endpoint is not being scraped"
+          impact: "The service is down or unreachable by monitoring; users may be unable to use it."
+          first_checks: "Is the process running? Check logs for startup errors, then port 8081 reachability from Prometheus."
+          runbook: "docs/observability/runbook.md#servicedown"
+
+      - alert: HighErrorRatio
+        expr: |
+          sum(rate(http_server_requests_seconds_count{service="{{ artifact_id }}",status=~"5.."}[5m]))
+            /
+          sum(rate(http_server_requests_seconds_count{service="{{ artifact_id }}"}[5m])) > 0.02
+        for: 5m
+        labels:
+          severity: critical
+          team: {{ project_name }}
+        annotations:
+          summary: "More than 2% of requests are failing with 5xx"
+          impact: "Users are receiving server errors."
+          first_checks: "Filter logs by level ERROR and event.name; check the latest deployment and database health."
+          runbook: "docs/observability/runbook.md#higherrorratio"
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_server_requests_seconds_bucket{service="{{ artifact_id }}"}[5m]))) > 1
+        for: 10m
+        labels:
+          severity: warning
+          team: {{ project_name }}
+        annotations:
+          summary: "p95 request latency is above 1 second"
+          impact: "Requests are slow; users may see timeouts."
+          first_checks: "Compare with traffic and database pool saturation; look for slow-request WARN events in the logs."
+          runbook: "docs/observability/runbook.md#highlatencyp95"
+
+      - alert: JvmHeapSaturation
+        expr: |
+          sum(jvm_memory_used_bytes{service="{{ artifact_id }}",area="heap"})
+            /
+          sum(jvm_memory_max_bytes{service="{{ artifact_id }}",area="heap"}) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          team: {{ project_name }}
+        annotations:
+          summary: "JVM heap usage is above 90%"
+          impact: "The service may start pausing for garbage collection or fail with OutOfMemoryError."
+          first_checks: "Check for a recent traffic or deployment change and for a steadily growing heap (leak)."
+          runbook: "docs/observability/runbook.md#jvmheapsaturation"
+
+      - alert: DbPoolSaturation
+        expr: |
+          hikaricp_connections_active{service="{{ artifact_id }}"}
+            /
+          hikaricp_connections_max{service="{{ artifact_id }}"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: {{ project_name }}
+        annotations:
+          summary: "Database connection pool is above 90% utilisation"
+          impact: "Requests may wait for a connection and time out."
+          first_checks: "Look for slow queries or a long transaction holding connections; check database health."
+          runbook: "docs/observability/runbook.md#dbpoolsaturation"

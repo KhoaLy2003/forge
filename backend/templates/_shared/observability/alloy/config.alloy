@@ -1,0 +1,30 @@
+// Ships container stdout to Loki. Labels stay low-cardinality (service, environment): request ids,
+// user ids and other high-cardinality values stay in the JSON log body, not in labels.
+//
+// Local development only: it reads the Docker socket. A service started with `mvn spring-boot:run`
+// is not a container, so its logs appear here only once it runs in one.
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  labels     = { environment = "development" }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

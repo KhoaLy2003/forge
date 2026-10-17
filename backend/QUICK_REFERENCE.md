@@ -32,14 +32,40 @@ Mixed — only the flags you omit get prompted:
 .venv\Scripts\forge new --name my-service --group-id com.example
 ```
 
+## Generate from a `forge.yaml` (entities)
+
+```bash
+.venv\Scripts\forge new --from forge.yaml
+```
+
+| Flag | Meaning |
+|---|---|
+| `--from PATH` | Read project parameters (`project_name`, `target_path`, `group_id`, `artifact_id`, `template`) and `entities` from a YAML file |
+
+Precedence per parameter: explicit CLI flag > value in the file > wizard
+prompt. `template:` in the file beats the `base-layered` default but not an
+explicit `--template`. Entities need `base-layered`; `minimal` + entities is an
+error (exit 1). A missing/invalid file or invalid entity set exits 1 and
+writes nothing; all problems are listed together.
+
+In an interactive run (the wizard prompted for a project parameter), on
+`base-layered` and with no `--from` entities, the wizard asks "Add an
+entity?" and afterwards "Save the model as forge.yaml?" (writes
+`<project>/forge.yaml` after a successful generation). Flag-complete and
+`--from`-complete runs never get these prompts. Format, field types and
+relation semantics: see "Entities" in [README.md](README.md).
+
 ## What happens on each run
 
 1. Collects parameters (wizard or flags)
 2. Aborts immediately if `<path>\<name>` already exists — no overwrite, no merge
 3. Shows a text preview of every file/folder that will be created, asks `[y/N]`
 4. Writes the project
-5. Runs a structural check (expected files present), then `mvn test-compile`
-6. If either check fails, prompts to keep or delete the generated folder
+5. Runs a structural check (expected files present), then an observability
+   check (monitoring files parse, and every metric in the alerts/dashboard is
+   one the app exposes — static, no Docker; skipped for `minimal`), then
+   `mvn test-compile`
+6. If any check fails, prompts to keep or delete the generated folder
 7. On success, prints `cd`, `docker compose up -d`, and `mvn spring-boot:run`
 
 ## After generation
@@ -79,6 +105,14 @@ To explore or verify the API without hand-writing curl commands, use Swagger
 UI (http://localhost:8080/swagger-ui.html) or Actuator health
 (http://localhost:8080/actuator/health).
 
+## Notifications (`base-layered` only)
+
+Send with `NotificationService.enqueue(...)`; recipients are opaque ids. To enable email,
+implement `RecipientDirectory` and set `MAIL_HOST` (plus `MAIL_PORT`/`MAIL_USERNAME`/
+`MAIL_PASSWORD`/`MAIL_FROM`); to enable the inbox API, implement `CurrentRecipientProvider`
+(otherwise it answers `401`). Add templates with a Liquibase migration. Full guide: the
+"Notifications" section of the generated project's README.
+
 ## Run Forge's own tests
 
 ```bash
@@ -89,4 +123,6 @@ This does **not** require Docker — `test_generation.py` only runs
 `mvn test-compile` against the generated project (compiles sources without
 running tests). If you want to run the *generated* project's own `mvn test`
 (which includes a Testcontainers-backed repository test), that does require
-Docker running locally.
+Docker running locally. For generated entity slices the same applies: only
+the generated `*RepositoryTest` classes need Docker, and they run in the
+generated project's CI.

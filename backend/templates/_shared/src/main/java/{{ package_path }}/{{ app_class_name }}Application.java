@@ -3,7 +3,8 @@ package {{ base_package }};
 import java.util.TimeZone;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-
+{% if use_liquibase %}import org.springframework.scheduling.annotation.EnableScheduling;
+{% endif %}
 /**
  * Application entry point.
  *
@@ -14,7 +15,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * negotiates with Postgres on that first connection.
  */
 @SpringBootApplication
-public class {{ app_class_name }}Application {
+{% if use_liquibase %}@EnableScheduling
+{% endif %}public class {{ app_class_name }}Application {
 
   static {
     // Pin the JVM default timezone before any JDBC connection (including Liquibase's,

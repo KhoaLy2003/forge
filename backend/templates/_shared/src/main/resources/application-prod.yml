@@ -15,3 +15,27 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+# One JSON object per line on stdout (ECS field names: @timestamp in UTC, log.level, message,
+# service.*, MDC keys such as request_id and job, and structured key-values such as event.name).
+# dev keeps the readable pattern from application.yml. Stack traces are cut at 4096 characters.
+# SensitiveDataCustomizer masks values of members named like password/token/secret/authorization.
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        version: "@project.version@"
+        environment: ${DEPLOYMENT_ENVIRONMENT:production}
+    json:
+      stacktrace:
+        max-length: 4096
+      customizer: {{ base_package }}.common.config.SensitiveDataCustomizer
+{% if include_monitoring %}
+management:
+  metrics:
+    tags:
+      environment: ${DEPLOYMENT_ENVIRONMENT:production}
+{% endif %}

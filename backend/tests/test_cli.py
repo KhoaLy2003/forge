@@ -203,3 +203,134 @@ def test_new_rejects_unknown_template(tmp_path):
     assert result.exit_code != 0
     assert not (tmp_path / "demo-service").exists()
     assert "base-layered" in result.output and "minimal" in result.output
+
+
+def _invoke_new(tmp_path, template, input_text="y\n"):
+    return runner.invoke(
+        cli.app,
+        [
+            "new",
+            "--name", "demo-service",
+            "--path", str(tmp_path),
+            "--group-id", "com.example",
+            "--artifact-id", "demo-service",
+            "--template", template,
+        ],
+        input=input_text,
+    )
+
+
+def test_new_runs_observability_check_between_structure_and_compile(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        cli,
+        "check_observability",
+        lambda target_dir, include_monitoring: calls.append(("observability", include_monitoring))
+        or ValidationResult(True, "ok"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "run_compile",
+        lambda target_dir: calls.append(("compile",)) or ValidationResult(True, "ok"),
+    )
+
+    result = _invoke_new(tmp_path, "base-layered")
+
+    assert result.exit_code == 0, result.output
+    assert calls == [("observability", True), ("compile",)]
+    assert "[3/4] Running observability check..." in result.output
+    assert "[4/4] Running compile check..." in result.output
+
+
+def test_new_passes_include_monitoring_false_for_minimal(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        cli,
+        "check_observability",
+        lambda target_dir, include_monitoring: seen.append(include_monitoring)
+        or ValidationResult(True, "ok"),
+    )
+    monkeypatch.setattr(cli, "run_compile", lambda target_dir: ValidationResult(True, "ok"))
+
+    result = _invoke_new(tmp_path, "minimal")
+
+    assert result.exit_code == 0, result.output
+    assert seen == [False]
+
+
+def test_new_aborts_before_compile_when_observability_check_fails(tmp_path, monkeypatch):
+    compiled = []
+    monkeypatch.setattr(
+        cli,
+        "check_observability",
+        lambda target_dir, include_monitoring: ValidationResult(
+            False, "Observability check failed", "alerts.yml: rule X references unknown metric foo"
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "run_compile",
+        lambda target_dir: compiled.append(True) or ValidationResult(True, "ok"),
+    )
+
+    result = _invoke_new(tmp_path, "base-layered", input_text="y\ny\n")
+
+    assert result.exit_code == 1
+    assert "Validation failed: Observability check failed" in result.output
+    assert "unknown metric foo" in result.output
+    assert compiled == []
+    assert not (tmp_path / "demo-service").exists()
+
+
+def test_new_passes_entity_dir_and_merges_dynamic_excludes(tmp_path, monkeypatch):
+    from core.templates import ENTITY_DIR
+
+    seen = {}
+    real_resolve, real_render = cli.resolve_tree, cli.render_tree
+
+    def spy_resolve(*args, **kwargs):
+        seen["resolve"] = kwargs
+        return real_resolve(*args, **kwargs)
+
+    def spy_render(*args, **kwargs):
+        seen["render"] = kwargs
+        return real_render(*args, **kwargs)
+
+    real_context = cli.ForgeConfig.template_context
+
+    def ctx_with_entities(self):
+        return {**real_context(self), "has_entities": True, "entities": []}
+
+    monkeypatch.setattr(cli, "resolve_tree", spy_resolve)
+    monkeypatch.setattr(cli, "render_tree", spy_render)
+    monkeypatch.setattr(cli.ForgeConfig, "template_context", ctx_with_entities)
+    monkeypatch.setattr(cli, "run_compile", lambda target_dir: ValidationResult(True, "ok"))
+
+    result = _invoke_new(tmp_path, "minimal")
+
+    assert result.exit_code == 0, result.output
+    for key in ("resolve", "render"):
+        assert seen[key]["entities_dir"] == ENTITY_DIR
+        assert cli.TEMPLATES["minimal"] == seen[key]["excluded"][: len(cli.TEMPLATES["minimal"])]
+        assert any("example" in pattern for pattern in seen[key]["excluded"][len(cli.TEMPLATES["minimal"]):])
+    project = tmp_path / "demo-service"
+    assert not (project / "src/main/resources/db/changelog/001-create-example-table.sql").exists()
+    assert not list(project.rglob("ExampleController.java"))
+
+
+def test_new_without_entities_passes_only_template_excludes(tmp_path, monkeypatch):
+    seen = {}
+    real_render = cli.render_tree
+
+    def spy_render(*args, **kwargs):
+        seen.update(kwargs)
+        return real_render(*args, **kwargs)
+
+    monkeypatch.setattr(cli, "render_tree", spy_render)
+    monkeypatch.setattr(cli, "run_compile", lambda target_dir: ValidationResult(True, "ok"))
+
+    result = _invoke_new(tmp_path, "base-layered")
+
+    assert result.exit_code == 0, result.output
+    assert seen["excluded"] == cli.TEMPLATES["base-layered"]
+    assert list((tmp_path / "demo-service").rglob("ExampleController.java"))

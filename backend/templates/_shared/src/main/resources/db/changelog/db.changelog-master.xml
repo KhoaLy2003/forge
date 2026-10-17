@@ -5,6 +5,6 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.0.xsd">
 
-    <include file="db/changelog/001-create-example-table.sql" relativeToChangelogFile="false"/>
-
+{% for f in changelog_files %}    <include file="db/changelog/{{ f }}" relativeToChangelogFile="false"/>
+{% endfor %}
 </databaseChangeLog>

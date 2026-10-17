@@ -149,14 +149,121 @@ generation — if so, just run `mvn spotless:apply` once to fix it for good.
 
 ## Observability
 
+This project follows the cross-project observability standard (structured
+logs, request correlation, redaction{% if include_monitoring %}, metrics, alerts and a runbook{% endif %}).
+Details: [`docs/observability/logging.md`](docs/observability/logging.md){% if include_monitoring %} and
+[`docs/observability/runbook.md`](docs/observability/runbook.md){% endif %}.
+
 - Health check: http://localhost:8080/actuator/health
 - Build/app info: http://localhost:8080/actuator/info
-- Every request gets an `X-Correlation-ID` header (generated if not supplied
-  by the caller, echoed back on the response) that is attached to the
-  logging MDC, so it appears in every log line emitted while handling that
-  request.
+- **Logs:** the `prod` profile writes one JSON object per line to stdout (ECS
+  field names); `dev` keeps a readable text line. Each request gets an
+  `X-Correlation-ID` (generated if missing or malformed, echoed on the
+  response) stored as `request_id` in every log line, plus one
+  `http.request.completed` event with method, route template, status and
+  duration. Query strings, headers and bodies are never logged.
+{% if include_monitoring %}- **Metrics:** Prometheus metrics are served on a separate management port,
+  http://localhost:8081/actuator/prometheus (override with
+  `MANAGEMENT_SERVER_PORT`). Do not publish that port beyond your monitoring
+  network.
+- **Local monitoring stack** (Prometheus, Grafana, Loki, Alloy):
 
-## Database Credentials
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+  ```
+
+  Grafana is at http://localhost:3000 (local-only default credentials) with a
+  provisioned service dashboard; alert rules live in
+  `observability/prometheus/alerts.yml`. The thresholds are starting points,
+  not universal defaults — tune them to your traffic and SLOs.
+{% endif %}
+
+{% if use_liquibase %}## Notifications
+
+A database-backed notification module lives in `src/main/java/.../notification`. A notification is
+recorded in the same transaction as the business change that caused it (an *outbox*); a background
+worker then delivers it, retrying failures. Channels: **in-app** (a per-recipient inbox) and
+**email** (SMTP). Delivery is at-least-once towards the provider: idempotency keys prevent
+duplicate *notifications*, not a duplicate send if the app crashes between sending and recording.
+
+### Sending a notification
+
+```java
+notificationService.enqueue(
+    new NotificationRequest(
+        "WELCOME",                                              // type, for filtering/reporting
+        "welcome",                                              // template key
+        Set.of(NotificationChannel.IN_APP, NotificationChannel.EMAIL),
+        Audience.users(Set.of(userId)),                         // 1-500 recipient ids
+        Map.of("name", user.getName()),                         // values for the placeholders
+        null,                                                   // send now (or an Instant)
+        "welcome:" + userId,                                    // idempotency key (or null)
+        null));                                                 // acting user id (or null)
+```
+
+`enqueue` joins the caller's transaction, so the notification commits or rolls back with your
+change. It rejects a request whose template is missing for a channel or whose data does not cover
+every placeholder.
+
+### Templates
+
+Templates live in the `notification_templates` table, one row per key, channel and locale, with
+placeholders written as `{% raw %}{{name}}{% endraw %}`. A `welcome` template for `in_app`
+and `email` in `en` is seeded by `002-create-notifications.sql`. Add your own with a new Liquibase
+migration. If a recipient's locale has no template, `app.notifications.default-locale` is used.
+
+### Extension points
+
+The module does not know what a "user" is in your project. Provide these beans:
+
+| Interface | Why | Without it |
+|---|---|---|
+| `RecipientDirectory` | maps a recipient id to an email address and locale | email deliveries are skipped (`recipient_unresolved`); in-app still works |
+| `CurrentRecipientProvider` | tells the inbox API who is calling, from your authentication | every `/api/v1/notifications` endpoint answers `401` |
+| `ChannelSender` | adds a channel such as push or SMS (also add it to `NotificationChannel` and the migration's channel checks) | only in-app and email exist |
+
+```java
+@Component
+class UserDirectory implements RecipientDirectory {
+  public Optional<Recipient> find(UUID id) {
+    return users.findById(id).map(u -> new Recipient(u.getEmail(), u.getLocale()));
+  }
+}
+
+@Component
+class JwtCaller implements CurrentRecipientProvider {
+  public Optional<UUID> currentRecipientId() {
+    return SecurityUtils.currentUserId(); // however your project authenticates
+  }
+}
+```
+
+### Inbox API
+
+All routes act on the authenticated caller; none accepts a recipient id from the client.
+
+| Method and path | Purpose |
+|---|---|
+| `GET /api/v1/notifications?page=&size=` | inbox, newest first |
+| `GET /api/v1/notifications/unread-count` | unread count |
+| `PATCH /api/v1/notifications/{id}/read` | mark one read |
+| `POST /api/v1/notifications/read-all` | mark all read |
+| `DELETE /api/v1/notifications/{id}` | remove from the inbox |
+| `GET`/`PUT /api/v1/notifications/preferences` | email on/off |
+
+### Configuration
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_STARTTLS` | host blank | SMTP; a blank host means email is "not configured" and deliveries are skipped, not failed |
+| `app.notifications.worker-enabled` | `true` | set `false` to stop the worker, for example in tests that start the full context |
+| `app.notifications.worker-delay-ms` / `batch-size` / `lease-seconds` / `max-attempts` | 3000 / 100 / 300 / 5 | worker cadence, batch, claim lease and retry limit (backoff 1 min, 5 min, 30 min, 2 h) |
+| `app.notifications.default-locale` | `en` | fallback locale for templates |
+
+Logs from this module never contain recipient addresses or message bodies. `NotificationQueriesTest`
+runs the outbox SQL against a real PostgreSQL and therefore needs Docker (it runs in CI).
+
+{% endif %}## Database Credentials
 
 The default Postgres credentials (`forge`/`forge`) are hardcoded in
 `docker-compose.yml` and `src/main/resources/application-dev.yml` for local

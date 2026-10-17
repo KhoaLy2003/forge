@@ -1,0 +1,22 @@
+-- liquibase formatted sql
+
+-- changeset forge:{{ 1700000000000 + (constraints_changelog_file[:3] | int) }}
+-- comment: Add the foreign keys of optional relations now that every table exists
+{%- for fk in fk_constraints %}
+
+ALTER TABLE {{ fk.table }}
+    ADD CONSTRAINT {{ fk.constraint_name }} FOREIGN KEY ({{ fk.column }})
+        REFERENCES {{ fk.ref_table }} ({{ fk.ref_column }}) ON DELETE {{ fk.on_delete }};
+{%- if fk.index_name %}
+CREATE INDEX {{ fk.index_name }} ON {{ fk.table }} ({{ fk.column }});
+{%- endif %}
+{%- endfor %}
+{%- for fk in fk_constraints | reverse %}
+{%- if loop.first %}
+{{ '' }}
+{%- endif %}
+{%- if fk.index_name %}
+-- rollback DROP INDEX {{ fk.index_name }};
+{%- endif %}
+-- rollback ALTER TABLE {{ fk.table }} DROP CONSTRAINT {{ fk.constraint_name }};
+{%- endfor %}

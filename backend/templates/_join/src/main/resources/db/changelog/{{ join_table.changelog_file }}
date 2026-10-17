@@ -1,0 +1,24 @@
+{%- set jt = join_table -%}
+{%- set w = [jt.left_column | length, jt.right_column | length] | max -%}
+-- liquibase formatted sql
+
+-- changeset forge:{{ 1700000000000 + (jt.changelog_file[:3] | int) }}
+-- comment: Create the {{ jt.name }} join table for {{ jt.relation }}
+CREATE TABLE {{ jt.name }}
+(
+    {{ jt.left_column.ljust(w) }} UUID NOT NULL,
+    {{ jt.right_column.ljust(w) }} UUID NOT NULL,
+    PRIMARY KEY ({{ jt.left_column }}, {{ jt.right_column }}),
+{%- for fk in jt.foreign_keys %}
+    CONSTRAINT {{ fk.constraint_name }} FOREIGN KEY ({{ fk.column }})
+        REFERENCES {{ fk.ref_table }} ({{ fk.ref_column }}) ON DELETE {{ fk.on_delete }}{{ ',' if not loop.last else '' }}
+{%- endfor %}
+);
+{%- for fk in jt.foreign_keys if fk.index_name %}
+{%- if loop.first %}
+{{ '' }}
+{%- endif %}
+CREATE INDEX {{ fk.index_name }} ON {{ jt.name }} ({{ fk.column }});
+{%- endfor %}
+
+-- rollback DROP TABLE {{ jt.name }};
