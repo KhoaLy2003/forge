@@ -1,226 +1,145 @@
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import cli
+from core.config_schema import ForgeConfig
 from core.validator import ValidationResult
 
 runner = CliRunner()
 
+PROJECT_FILE = """\
+project_name: demo-service
+target_path: {target}
+group_id: com.example
+artifact_id: demo-service
+{extra}"""
 
-def test_new_aborts_if_target_exists(tmp_path, monkeypatch):
-    monkeypatch.setattr(cli, "SHARED_DIR", cli.SHARED_DIR)
-    existing = tmp_path / "demo-service"
-    existing.mkdir()
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-            "--template", "base-layered",
-        ],
-    )
+def _project_file(folder: Path, template: str | None = None, extra: str = "") -> Path:
+    """Write a forge.yaml into ``folder`` whose target is ``folder`` (generated project: folder/demo-service)."""
+    if template is not None:
+        extra += f"template: {template}\n"
+    path = folder / "forge.yaml"
+    path.write_text(PROJECT_FILE.format(target=folder.as_posix(), extra=extra), encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def workdir(tmp_path, monkeypatch):
+    """Run the CLI from tmp_path, so ``forge new`` finds tmp_path/forge.yaml."""
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
+
+
+def _stub_compile(monkeypatch, result=None):
+    monkeypatch.setattr(cli, "run_compile", lambda target_dir: result or ValidationResult(True, "ok"))
+
+
+def _invoke_new(input_text="y\n"):
+    return runner.invoke(cli.app, ["new"], input=input_text)
+
+
+def test_new_aborts_if_target_exists(workdir, monkeypatch):
+    _stub_compile(monkeypatch)
+    _project_file(workdir, "base-layered")
+    (workdir / "demo-service").mkdir()
+
+    result = _invoke_new()
 
     assert result.exit_code == 1
     assert "already exists" in result.output
 
 
-def test_new_generates_project_on_confirm(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        cli, "run_compile", lambda target_dir: ValidationResult(True, "ok")
-    )
+def test_new_generates_project_on_confirm(workdir, monkeypatch):
+    _stub_compile(monkeypatch)
+    _project_file(workdir)
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-            "--template", "base-layered",
-        ],
-        input="y\n",
-    )
+    result = _invoke_new()
 
     assert result.exit_code == 0, result.output
-    assert (tmp_path / "demo-service" / "pom.xml").exists()
+    assert (workdir / "demo-service" / "pom.xml").exists()
     assert "Project generated successfully" in result.output
 
 
-def test_new_defaults_template_when_flag_omitted(tmp_path, monkeypatch):
-    """A flag-complete invocation that omits --template must still run non-interactively
-    to completion (no wizard prompt for template) — regression test for a bug where
-    --template had no default and always fell through to a blocking wizard prompt."""
-    monkeypatch.setattr(
-        cli, "run_compile", lambda target_dir: ValidationResult(True, "ok")
-    )
+def test_new_defaults_template_when_file_omits_it(workdir, monkeypatch):
+    _stub_compile(monkeypatch)
+    _project_file(workdir)  # no template key
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-        ],
-        input="y\n",
-    )
+    result = _invoke_new()
 
     assert result.exit_code == 0, result.output
-    assert (tmp_path / "demo-service" / "pom.xml").exists()
-    assert (tmp_path / "demo-service" / "src/main/resources/db/changelog").exists()
+    assert (workdir / "demo-service" / "src/main/resources/db/changelog").exists()
 
 
-def test_new_cancels_on_no_confirm(tmp_path):
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-            "--template", "base-layered",
-        ],
-        input="n\n",
-    )
+def test_new_cancels_on_no_confirm(workdir):
+    _project_file(workdir, "base-layered")
+
+    result = _invoke_new(input_text="n\n")
 
     assert result.exit_code == 0
-    assert not (tmp_path / "demo-service").exists()
+    assert not (workdir / "demo-service").exists()
     assert "Cancelled" in result.output
 
 
-def test_new_errors_if_template_dir_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr(cli, "SHARED_DIR", tmp_path / "does-not-exist")
+def test_new_errors_if_template_dir_missing(workdir, monkeypatch):
+    monkeypatch.setattr(cli, "SHARED_DIR", workdir / "does-not-exist")
+    _project_file(workdir, "base-layered")
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-            "--template", "base-layered",
-        ],
-    )
+    result = _invoke_new()
 
     assert result.exit_code == 1
     assert "template directory not found" in result.output
 
 
-def test_new_prompts_to_delete_on_render_failure(tmp_path, monkeypatch):
+def test_new_prompts_to_delete_on_render_failure(workdir, monkeypatch):
     def boom(*args, **kwargs):
         raise RuntimeError("disk full")
 
     monkeypatch.setattr(cli, "render_tree", boom)
+    _project_file(workdir, "base-layered")
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-            "--template", "base-layered",
-        ],
-        input="y\ny\n",
-    )
+    result = _invoke_new(input_text="y\ny\n")
 
     assert result.exit_code == 1
-    assert not (tmp_path / "demo-service").exists()
+    assert not (workdir / "demo-service").exists()
     assert "disk full" in result.output
 
 
-def test_new_prompts_to_delete_on_validation_failure(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        cli,
-        "run_compile",
-        lambda target_dir: ValidationResult(False, "mvn compile failed", "boom"),
-    )
+def test_new_prompts_to_delete_on_validation_failure(workdir, monkeypatch):
+    _stub_compile(monkeypatch, ValidationResult(False, "mvn compile failed", "boom"))
+    _project_file(workdir, "base-layered")
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-            "--template", "base-layered",
-        ],
-        input="y\ny\n",
-    )
+    result = _invoke_new(input_text="y\ny\n")
 
     assert result.exit_code == 1
     assert "Validation failed" in result.output
-    assert not (tmp_path / "demo-service").exists()
+    assert not (workdir / "demo-service").exists()
 
 
-def test_new_with_minimal_template_excludes_liquibase_changelog(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        cli, "run_compile", lambda target_dir: ValidationResult(True, "ok")
-    )
+def test_new_with_minimal_template_excludes_liquibase_changelog(workdir, monkeypatch):
+    _stub_compile(monkeypatch)
+    _project_file(workdir, "minimal")
 
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-            "--template", "minimal",
-        ],
-        input="y\n",
-    )
+    result = _invoke_new()
 
     assert result.exit_code == 0, result.output
-    assert (tmp_path / "demo-service" / "pom.xml").exists()
-    assert not (tmp_path / "demo-service" / "src/main/resources/db/changelog").exists()
+    assert (workdir / "demo-service" / "pom.xml").exists()
+    assert not (workdir / "demo-service" / "src/main/resources/db/changelog").exists()
 
 
-def test_new_rejects_unknown_template(tmp_path):
-    result = runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-            "--template", "does-not-exist",
-        ],
-    )
+def test_new_rejects_unknown_template_in_file(workdir):
+    _project_file(workdir, "does-not-exist")
 
-    assert result.exit_code != 0
-    assert not (tmp_path / "demo-service").exists()
+    result = _invoke_new()
+
+    assert result.exit_code == 1
+    assert not (workdir / "demo-service").exists()
     assert "base-layered" in result.output and "minimal" in result.output
 
 
-def _invoke_new(tmp_path, template, input_text="y\n"):
-    return runner.invoke(
-        cli.app,
-        [
-            "new",
-            "--name", "demo-service",
-            "--path", str(tmp_path),
-            "--group-id", "com.example",
-            "--artifact-id", "demo-service",
-            "--template", template,
-        ],
-        input=input_text,
-    )
-
-
-def test_new_runs_observability_check_between_structure_and_compile(tmp_path, monkeypatch):
+def test_new_runs_observability_check_between_structure_and_compile(workdir, monkeypatch):
     calls = []
     monkeypatch.setattr(
         cli,
@@ -233,8 +152,9 @@ def test_new_runs_observability_check_between_structure_and_compile(tmp_path, mo
         "run_compile",
         lambda target_dir: calls.append(("compile",)) or ValidationResult(True, "ok"),
     )
+    _project_file(workdir, "base-layered")
 
-    result = _invoke_new(tmp_path, "base-layered")
+    result = _invoke_new()
 
     assert result.exit_code == 0, result.output
     assert calls == [("observability", True), ("compile",)]
@@ -242,7 +162,7 @@ def test_new_runs_observability_check_between_structure_and_compile(tmp_path, mo
     assert "[4/4] Running compile check..." in result.output
 
 
-def test_new_passes_include_monitoring_false_for_minimal(tmp_path, monkeypatch):
+def test_new_passes_include_monitoring_false_for_minimal(workdir, monkeypatch):
     seen = []
     monkeypatch.setattr(
         cli,
@@ -250,15 +170,16 @@ def test_new_passes_include_monitoring_false_for_minimal(tmp_path, monkeypatch):
         lambda target_dir, include_monitoring: seen.append(include_monitoring)
         or ValidationResult(True, "ok"),
     )
-    monkeypatch.setattr(cli, "run_compile", lambda target_dir: ValidationResult(True, "ok"))
+    _stub_compile(monkeypatch)
+    _project_file(workdir, "minimal")
 
-    result = _invoke_new(tmp_path, "minimal")
+    result = _invoke_new()
 
     assert result.exit_code == 0, result.output
     assert seen == [False]
 
 
-def test_new_aborts_before_compile_when_observability_check_fails(tmp_path, monkeypatch):
+def test_new_aborts_before_compile_when_observability_check_fails(workdir, monkeypatch):
     compiled = []
     monkeypatch.setattr(
         cli,
@@ -272,17 +193,18 @@ def test_new_aborts_before_compile_when_observability_check_fails(tmp_path, monk
         "run_compile",
         lambda target_dir: compiled.append(True) or ValidationResult(True, "ok"),
     )
+    _project_file(workdir, "base-layered")
 
-    result = _invoke_new(tmp_path, "base-layered", input_text="y\ny\n")
+    result = _invoke_new(input_text="y\ny\n")
 
     assert result.exit_code == 1
     assert "Validation failed: Observability check failed" in result.output
     assert "unknown metric foo" in result.output
     assert compiled == []
-    assert not (tmp_path / "demo-service").exists()
+    assert not (workdir / "demo-service").exists()
 
 
-def test_new_passes_entity_dir_and_merges_dynamic_excludes(tmp_path, monkeypatch):
+def test_new_passes_entity_dir_and_merges_dynamic_excludes(workdir, monkeypatch):
     from core.templates import ENTITY_DIR
 
     seen = {}
@@ -296,29 +218,30 @@ def test_new_passes_entity_dir_and_merges_dynamic_excludes(tmp_path, monkeypatch
         seen["render"] = kwargs
         return real_render(*args, **kwargs)
 
-    real_context = cli.ForgeConfig.template_context
+    real_context = ForgeConfig.template_context
 
     def ctx_with_entities(self):
         return {**real_context(self), "has_entities": True, "entities": []}
 
     monkeypatch.setattr(cli, "resolve_tree", spy_resolve)
     monkeypatch.setattr(cli, "render_tree", spy_render)
-    monkeypatch.setattr(cli.ForgeConfig, "template_context", ctx_with_entities)
-    monkeypatch.setattr(cli, "run_compile", lambda target_dir: ValidationResult(True, "ok"))
+    monkeypatch.setattr(ForgeConfig, "template_context", ctx_with_entities)
+    _stub_compile(monkeypatch)
+    _project_file(workdir, "minimal")
 
-    result = _invoke_new(tmp_path, "minimal")
+    result = _invoke_new()
 
     assert result.exit_code == 0, result.output
     for key in ("resolve", "render"):
         assert seen[key]["entities_dir"] == ENTITY_DIR
         assert cli.TEMPLATES["minimal"] == seen[key]["excluded"][: len(cli.TEMPLATES["minimal"])]
         assert any("example" in pattern for pattern in seen[key]["excluded"][len(cli.TEMPLATES["minimal"]):])
-    project = tmp_path / "demo-service"
+    project = workdir / "demo-service"
     assert not (project / "src/main/resources/db/changelog/001-create-example-table.sql").exists()
     assert not list(project.rglob("ExampleController.java"))
 
 
-def test_new_without_entities_passes_only_template_excludes(tmp_path, monkeypatch):
+def test_new_without_entities_passes_only_template_excludes(workdir, monkeypatch):
     seen = {}
     real_render = cli.render_tree
 
@@ -327,10 +250,11 @@ def test_new_without_entities_passes_only_template_excludes(tmp_path, monkeypatc
         return real_render(*args, **kwargs)
 
     monkeypatch.setattr(cli, "render_tree", spy_render)
-    monkeypatch.setattr(cli, "run_compile", lambda target_dir: ValidationResult(True, "ok"))
+    _stub_compile(monkeypatch)
+    _project_file(workdir, "base-layered")
 
-    result = _invoke_new(tmp_path, "base-layered")
+    result = _invoke_new()
 
     assert result.exit_code == 0, result.output
     assert seen["excluded"] == cli.TEMPLATES["base-layered"]
-    assert list((tmp_path / "demo-service").rglob("ExampleController.java"))
+    assert list((workdir / "demo-service").rglob("ExampleController.java"))

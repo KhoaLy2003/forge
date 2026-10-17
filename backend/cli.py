@@ -1,4 +1,4 @@
-"""Forge's Typer entry point: wires the wizard, preview, renderer, and validator into `forge new`."""
+"""Forge's Typer entry point: `forge init` writes forge.yaml, `forge new` generates the project it describes."""
 
 import shutil
 import sys
@@ -6,15 +6,9 @@ import traceback
 from pathlib import Path
 
 import typer
-from pydantic import ValidationError
 
-try:  # Typer >= 0.2x vendors Click; older Typer versions depend on the real package
-    from click.core import ParameterSource
-except ImportError:  # pragma: no cover - depends on the installed Typer
-    from typer._click.core import ParameterSource
-
-from core.config_schema import ForgeConfig
 from core.progress import step
+from core.project_config import CONFIG_FILENAME, MissingConfigError, build_config, write_starter
 from core.renderer import render_tree, resolve_tree
 from core.templates import (
     ENTITY_DIR,
@@ -26,8 +20,6 @@ from core.templates import (
 )
 from core.tree_preview import confirm, format_tree
 from core.validator import check_observability, check_structure, run_compile
-from core.entity_spec import load_forge_yaml
-from core.wizard import collect_entities, collect_params, needs_prompt, save_forge_yaml
 
 app = typer.Typer()
 
@@ -195,50 +187,36 @@ def expected_structural_paths(context: dict) -> list[Path]:
 
 
 @app.command()
-def new(
-    ctx: typer.Context,
-    project_name: str = typer.Option(None, "--name"),
-    target_path: str = typer.Option(None, "--path"),
-    group_id: str = typer.Option(None, "--group-id"),
-    artifact_id: str = typer.Option(None, "--artifact-id"),
-    template: str = typer.Option("base-layered", "--template"),
-    from_file: Path = typer.Option(
-        None, "--from", help="forge.yaml with project parameters and/or entities (CLI flags win over it)."
-    ),
-    verbose: bool = typer.Option(False, "--verbose"),
-):
-    """Scaffold a new Spring Boot project: collect params, preview, render, then validate."""
-    overrides = {
-        "project_name": project_name,
-        "target_path": target_path,
-        "group_id": group_id,
-        "artifact_id": artifact_id,
-        "template": template,
-    }
-    file_entities: dict = {}
-    if from_file is not None:
-        try:
-            project_file = load_forge_yaml(from_file)
-        except ValueError as exc:
-            typer.echo(f"Error: {exc}")
-            raise typer.Exit(code=1)
-        # precedence: explicit CLI flag > value from the file > wizard prompt
-        for key in ("project_name", "target_path", "group_id", "artifact_id"):
-            if overrides[key] is None and getattr(project_file, key) is not None:
-                overrides[key] = str(getattr(project_file, key))
-        # --template has a hardcoded default, so "given on the command line" comes from Click, not the value
-        template_given = ctx.get_parameter_source("template") == ParameterSource.COMMANDLINE
-        if not template_given and project_file.template is not None:
-            overrides["template"] = project_file.template
-        file_entities = project_file.entities
-        overrides["entities"] = file_entities
-
-    interactive = needs_prompt(overrides)
+def init(verbose: bool = typer.Option(False, "--verbose")):
+    """Write a commented forge.yaml into the current folder. Edit it, then run `forge new`."""
+    path = Path.cwd() / CONFIG_FILENAME
     try:
-        config = collect_params(overrides)
-    except ValidationError as exc:
+        write_starter(path)
+    except FileExistsError as exc:
         typer.echo(f"Error: {exc}")
         raise typer.Exit(code=1)
+    typer.echo(f"Created {path}. Edit it, then run \"forge new\".")
+
+
+@app.command()
+def new(verbose: bool = typer.Option(False, "--verbose")):
+    """Generate the project described by ./forge.yaml: preview, render, then validate."""
+    path = Path.cwd() / CONFIG_FILENAME
+    try:
+        config = build_config(path)
+    except MissingConfigError:
+        typer.echo(f'No {CONFIG_FILENAME} found in {Path.cwd()}. Run "forge init" first.')
+        raise typer.Exit(code=1)
+    except ValueError as exc:
+        typer.echo(f"Error: {exc}")
+        raise typer.Exit(code=1)
+
+    typer.echo(f"Config:   {path}")
+    typer.echo(f"Project:  {config.project_name}")
+    typer.echo(f"Target:   {config.target_dir}")
+    typer.echo(f"Group:    {config.group_id}")
+    typer.echo(f"Artifact: {config.artifact_id}")
+    typer.echo(f"Template: {config.template}")
 
     if config.target_dir.exists():
         typer.echo(f"Error: target directory already exists: {config.target_dir}")
@@ -247,17 +225,6 @@ def new(
     if not SHARED_DIR.is_dir():
         typer.echo(f"Error: template directory not found: {SHARED_DIR}")
         raise typer.Exit(code=1)
-
-    # The entity step only runs in an interactive run: a flag-complete or --from-complete invocation never gets it.
-    model_entered = interactive and config.template == "base-layered" and not file_entities
-    if model_entered:
-        entities = collect_entities()
-        if entities:
-            try:
-                config = ForgeConfig(**{**config.model_dump(), "entities": entities})
-            except ValidationError as exc:
-                typer.echo(f"Error: {exc}")
-                raise typer.Exit(code=1)
 
     context = config.template_context()
     excluded = TEMPLATES[config.template] + dynamic_excludes(context)
@@ -317,10 +284,6 @@ def new(
         raise typer.Exit(code=1)
 
     typer.echo("Project generated successfully!")
-    if model_entered and config.entities and typer.confirm("Save the model as forge.yaml?", default=False):
-        saved_to = config.target_dir / "forge.yaml"
-        save_forge_yaml(config, saved_to)
-        typer.echo(f"Saved {saved_to}")
     typer.echo(f"cd {config.target_dir}")
     typer.echo("docker compose up -d")
     typer.echo("mvn spring-boot:run")

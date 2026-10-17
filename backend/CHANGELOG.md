@@ -1,5 +1,15 @@
 ## [Unreleased]
 
+- **Breaking: file-only configuration.** `forge new` takes no options any more.
+  Project parameters come only from `forge.yaml` in the current folder. The
+  `--name`, `--path`, `--group-id`, `--artifact-id`, `--template` and `--from`
+  options and the interactive wizard are removed, along with the wizard's
+  entity step and the "Save the model as forge.yaml?" prompt. New `forge init`
+  writes a commented starter `forge.yaml` (refuses to overwrite). `forge new`
+  reports every problem in the file at once, prints the resolved values, and
+  never prompts. Scripts and CI that passed flags must write a `forge.yaml`
+  first. The READMEs were rewritten around the new workflow.
+
 - Entity-driven generation, input side: `forge new --from forge.yaml` reads
   project parameters and an `entities` model (fields, relations) from a YAML
   file. Precedence per parameter is explicit CLI flag, then file value, then
