@@ -3,6 +3,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 import cli
+from core.generation import TEMPLATES
 from core.templates import SEARCH_PACKAGE_TEMPLATE
 from core.validator import ValidationResult
 
@@ -312,8 +313,8 @@ def test_new_passes_entity_dir_and_merges_dynamic_excludes(tmp_path, monkeypatch
     assert result.exit_code == 0, result.output
     for key in ("resolve", "render"):
         assert seen[key]["entities_dir"] == ENTITY_DIR
-        assert cli.TEMPLATES["minimal"] == seen[key]["excluded"][: len(cli.TEMPLATES["minimal"])]
-        assert any("example" in pattern for pattern in seen[key]["excluded"][len(cli.TEMPLATES["minimal"]):])
+        assert TEMPLATES["minimal"] == seen[key]["excluded"][: len(TEMPLATES["minimal"])]
+        assert any("example" in pattern for pattern in seen[key]["excluded"][len(TEMPLATES["minimal"]):])
     project = tmp_path / "demo-service"
     assert not (project / "src/main/resources/db/changelog/001-create-example-table.sql").exists()
     assert not list(project.rglob("ExampleController.java"))
@@ -334,5 +335,5 @@ def test_new_without_entities_excludes_only_the_search_helpers_on_top_of_the_tem
 
     assert result.exit_code == 0, result.output
     # without entities the only dynamic exclude is the search helper package, which only entity filters use
-    assert seen["excluded"] == cli.TEMPLATES["base-layered"] + (SEARCH_PACKAGE_TEMPLATE,)
+    assert seen["excluded"] == TEMPLATES["base-layered"] + (SEARCH_PACKAGE_TEMPLATE,)
     assert list((tmp_path / "demo-service").rglob("ExampleController.java"))

@@ -1,5 +1,17 @@
 ## [Unreleased]
 
+- New authoring aids: `forge schema` prints/writes a JSON Schema for
+  `forge.yaml` (add `# yaml-language-server: $schema=<path>` for editor
+  completion), `forge validate-model FILE` checks a model and lists the
+  Liquibase changelog order, and `forge preview --from FILE [--file PATH]`
+  shows the generated tree or one rendered file without writing anything.
+- New `forge ui`: a local web UI (127.0.0.1 only, per-run token) with a
+  visual entity/relation editor, live validation, file preview, forge.yaml
+  import/export and project generation. Needs the optional extra:
+  `pip install -e "./backend[ui]"`.
+- Internal: shared generation helpers moved from `cli.py` to
+  `core/generation.py`; `core/entity_spec.py` gained `parse_project_data`;
+  `core/renderer.py` gained `render_files`.
 - Generated entity list endpoints accept optional filters. Each entity gets a
   `<Entity>Filter` record (one query parameter per scalar field and to-one
   relation: case-insensitive `contains` for strings, inclusive `From`/`To`

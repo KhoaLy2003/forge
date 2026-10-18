@@ -1,7 +1,7 @@
 # tests/test_generation.py
 import pytest
 
-from cli import EXPECTED_STRUCTURAL_PATHS, expected_structural_paths
+from core.generation import EXPECTED_STRUCTURAL_PATHS, expected_structural_paths
 from core.config_schema import ForgeConfig
 from core.renderer import render_tree
 from core.templates import SHARED_DIR, discover_templates, filter_excluded_paths

@@ -97,6 +97,19 @@ check and `mvn compile` against the new project, and reports next steps.
 See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for command details, and
 [CHANGELOG.md](CHANGELOG.md) for version history.
 
+## Authoring aids and the web UI
+
+```bash
+.venv\Scripts\forge schema --output forge.schema.json   # editor completion for forge.yaml
+.venv\Scripts\forge validate-model forge.yaml           # check a model, list changelog order
+.venv\Scripts\forge preview --from forge.yaml           # file tree; add --file pom.xml for one file
+.venv\Scripts\forge ui                                  # local web UI (needs: pip install -e "./backend[ui]")
+```
+
+`forge ui` serves a visual entity/relation editor on `127.0.0.1` only (a
+per-run token protects the API), validates as you type, previews generated
+files, imports/exports `forge.yaml` and generates the project.
+
 ## Entities (`forge.yaml`)
 
 Instead of the built-in `example` slice you can have Forge generate your own

@@ -154,7 +154,7 @@ class ProjectFile(_Strict):
     entities: dict[str, EntitySpec] = Field(default_factory=dict)
 
 
-def _format_errors(path: Path, exc: ValidationError) -> str:
+def _format_errors(source: str | Path, exc: ValidationError) -> str:
     lines = []
     for err in exc.errors():
         loc = ".".join(str(p) for p in err["loc"]) or "<root>"
@@ -162,7 +162,7 @@ def _format_errors(path: Path, exc: ValidationError) -> str:
         if err["type"] == "extra_forbidden":
             msg = "unknown key (not part of the forge.yaml format)"
         lines.append(f"  - {loc}: {msg}")
-    return f"Invalid {path}:\n" + "\n".join(lines)
+    return f"Invalid {source}:\n" + "\n".join(lines)
 
 
 def load_forge_yaml(path: Path) -> ProjectFile:
@@ -180,24 +180,33 @@ def load_forge_yaml(path: Path) -> ProjectFile:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         raise ValueError(f"Invalid YAML in {path}: {exc}") from exc
+    return parse_project_data(data, path)
+
+
+def parse_project_data(data, source: str | Path) -> ProjectFile:
+    """Validate already-loaded forge.yaml data (injecting entity names from their keys).
+
+    Raises ``ValueError`` naming ``source`` and the key path of every problem.
+    """
     if data is None:
         data = {}
     if not isinstance(data, dict):
-        raise ValueError(f"Invalid {path}: top level must be a mapping, got {type(data).__name__}")
+        raise ValueError(f"Invalid {source}: top level must be a mapping, got {type(data).__name__}")
+    data = dict(data)
 
     entities = data.get("entities")
     if entities is None:
         data["entities"] = {}
     elif not isinstance(entities, dict):
-        raise ValueError(f"Invalid {path}: 'entities' must be a mapping of entity name to definition")
+        raise ValueError(f"Invalid {source}: 'entities' must be a mapping of entity name to definition")
     else:
         normalized = {}
         for key, body in entities.items():
             body = {} if body is None else body
             if not isinstance(body, dict):
-                raise ValueError(f"Invalid {path}: entities.{key} must be a mapping")
+                raise ValueError(f"Invalid {source}: entities.{key} must be a mapping")
             if body.get("name", key) != key:
-                raise ValueError(f"Invalid {path}: entities.{key}.name must match its key '{key}'")
+                raise ValueError(f"Invalid {source}: entities.{key}.name must match its key '{key}'")
             body = dict(body)
             body["name"] = key
             for section in ("fields", "relations"):
@@ -208,4 +217,4 @@ def load_forge_yaml(path: Path) -> ProjectFile:
     try:
         return ProjectFile.model_validate(data)
     except ValidationError as exc:
-        raise ValueError(_format_errors(path, exc)) from exc
+        raise ValueError(_format_errors(source, exc)) from exc
