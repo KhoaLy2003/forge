@@ -196,6 +196,37 @@ class JoinTable:
 
 
 @dataclass
+class FilterParam:
+    """One optional query parameter of an entity's generated ``<Entity>Filter`` record.
+
+    name: record component / query parameter (``name``, ``quantityFrom``, ``customerId``).
+    java_type: boxed type of the component.  attribute: entity attribute the predicate targets.
+    op: ``contains`` (strings, case-insensitive), ``equal``, ``atLeast`` / ``atMost`` (ranges) or ``idEquals``
+    (to-one relation, compares the related entity's id).
+    imports: ``java.*`` FQCNs for ``java_type``.  import_suffix: for enums, import
+    ``<base_package>.<import_suffix>``.  annotation/annotation_import: component annotation, e.g.
+    ``@DateTimeFormat(iso = DateTimeFormat.ISO.DATE)`` (ISO dates are not the Spring default).
+    getter: getter of the scalar field on the entity (None for relations); tests read the value from a saved
+    entity.  distinct: the two sample values of the field differ, so a test can tell two rows apart.
+    param_sample: a valid query-string value for controller tests (None when not covered);
+    sample_value: the Java expression that value binds to.
+    """
+
+    name: str
+    java_type: str
+    attribute: str
+    op: str
+    imports: tuple[str, ...] = ()
+    import_suffix: str | None = None
+    annotation: str | None = None
+    annotation_import: str | None = None
+    getter: str | None = None
+    distinct: bool = False
+    param_sample: str | None = None
+    sample_value: str | None = None
+
+
+@dataclass
 class ResolvedEntity:
     """One entity ready for templates.
 
@@ -221,6 +252,7 @@ class ResolvedEntity:
     enums: list[EnumDescriptor]
     foreign_keys: list[ForeignKey]
     imports: tuple[str, ...]
+    filters: list["FilterParam"] = field(default_factory=list)
 
 
 @dataclass

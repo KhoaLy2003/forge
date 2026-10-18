@@ -33,6 +33,7 @@
   base_package ~ '.' ~ e.package ~ '.dto.Create' ~ e.name ~ 'Request',
   base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Response',
   base_package ~ '.' ~ e.package ~ '.dto.Update' ~ e.name ~ 'Request',
+  base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Filter',
   base_package ~ '.' ~ e.package ~ '.service.' ~ e.name ~ 'Service',
   'io.swagger.v3.oas.annotations.Operation',
   'io.swagger.v3.oas.annotations.tags.Tag',
@@ -82,6 +83,7 @@ public class {{ e.name }}Controller {
    * @param size page size, 1-100 inclusive (default {@code 20})
    * @param sortBy entity property to sort by (default {@code createdAt})
    * @param sortDirection {@code ASC} or {@code DESC} (default {@code DESC})
+   * @param filter optional filters, bound from query parameters
    * @return {@code 200 OK} with the requested page wrapped in {@link ApiResponse}
    */
   @GetMapping
@@ -90,8 +92,9 @@ public class {{ e.name }}Controller {
       @RequestParam(defaultValue = "0") @Min(0) int page,
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
       @RequestParam(defaultValue = "createdAt") String sortBy,
-      @RequestParam(defaultValue = "DESC") String sortDirection) {
-{{ assign(4, 'PageResponse<' ~ e.name ~ 'Response> result', 'service.findAll(page, size, sortBy, sortDirection)') }}
+      @RequestParam(defaultValue = "DESC") String sortDirection,
+      {{ e.name }}Filter filter) {
+{{ assign(4, 'PageResponse<' ~ e.name ~ 'Response> result', 'service.findAll(page, size, sortBy, sortDirection, filter)') }}
 {{ wrap(4, 'return ResponseEntity.ok(', ['ApiResponse.success("' ~ plural ~ ' retrieved successfully", result)'], ');') }}
   }
 

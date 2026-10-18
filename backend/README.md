@@ -143,6 +143,23 @@ Field types: `string` (`length`, or `text: true`), `int`, `long`, `decimal`
 `enum` (`values` required, UPPER_SNAKE_CASE). Common modifiers: `required`,
 `unique`, `default`. Unknown keys in the file are rejected.
 
+Each entity's list endpoint (`GET /api/v1/<plural>`) also takes optional filter
+query parameters, generated from the model, next to `page`, `size`, `sortBy`
+and `sortDirection`. Soft-deleted rows are always excluded.
+
+| Field type | Query parameters | Match |
+|---|---|---|
+| `string` | `name` | case-insensitive contains (`%` and `_` are literal) |
+| `int`, `long`, `decimal`, `date`, `instant` | `totalFrom`, `totalTo` | inclusive range; dates are `2026-01-31`, instants ISO-8601 |
+| `boolean`, `uuid`, `enum` | `active` | exact |
+| `many-to-one`, `one-to-one` | `customerId` | related id |
+
+Only fields in the model can be filtered, and `many-to-many` relations are not
+filterable. A field whose name collides with a list parameter (`size`, `page`,
+`sortBy`, `sortDirection`) is exposed as `filterSize` etc. The code lives in
+`<Entity>Filter` (a record whose `toSpecification()` feeds the repository's
+`JpaSpecificationExecutor`) and `common/search/SearchSpecifications`.
+
 ```bash
 .venv\Scripts\forge new --from forge.yaml
 .venv\Scripts\forge new --from forge.yaml --name other-name --path C:\projects

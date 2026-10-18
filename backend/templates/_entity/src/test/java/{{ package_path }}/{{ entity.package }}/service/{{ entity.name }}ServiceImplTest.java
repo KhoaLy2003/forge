@@ -28,6 +28,7 @@
 {%- set imps = [
   base_package ~ '.common.exception.ResourceNotFoundException',
   base_package ~ '.' ~ e.package ~ '.dto.Create' ~ e.name ~ 'Request',
+  base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Filter',
   base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Response',
   base_package ~ '.' ~ e.package ~ '.dto.Update' ~ e.name ~ 'Request',
   base_package ~ '.' ~ e.package ~ '.entity.' ~ e.name,
@@ -43,7 +44,8 @@
   'org.mockito.junit.jupiter.MockitoExtension',
   'org.springframework.data.domain.PageImpl',
   'org.springframework.data.domain.PageRequest',
-  'org.springframework.data.domain.Pageable'] -%}
+  'org.springframework.data.domain.Pageable',
+  'org.springframework.data.jpa.domain.Specification'] -%}
 {%- if checks_unique %}{% set _ = imps.append(base_package ~ '.common.exception.ConflictException') %}{% endif -%}
 {%- if many %}{% set _ = imps.append('java.util.Set') %}{% endif -%}
 {%- for f in e.fields -%}
@@ -140,14 +142,15 @@ class {{ e.name }}ServiceImplTest {
   void findAll_returnsMappedPage() {
     {{ e.name }} entity = new {{ e.name }}();
     Pageable pageable = PageRequest.of(0, 20);
-    when(repository.findAllByDeletedAtIsNull(any()))
+    when(repository.findAll(any(Specification.class), any(Pageable.class)))
         .thenReturn(new PageImpl<>(List.of(entity), pageable, 1));
     when(mapper.toResponse(entity)).thenReturn(new {{ e.name }}Response());
+    {{ e.name }}Filter filter = {{ e.name }}Filter.builder().build();
 
-    var result = service.findAll(0, 20, "createdAt", "DESC");
+    var result = service.findAll(0, 20, "createdAt", "DESC", filter);
 
     assertThat(result.getData()).hasSize(1);
-    verify(repository).findAllByDeletedAtIsNull(any());
+    verify(repository).findAll(any(Specification.class), any(Pageable.class));
   }
 
   @Test

@@ -5,6 +5,8 @@
 {%- set required_scalars = e.fields | selectattr('required') | rejectattr('default_sql') | list -%}
 {%- set required_relations = e.owning_relations | selectattr('required') | list -%}
 {%- set can_be_invalid = required_scalars or required_relations -%}
+{#- Filters that bind from a query string in the controller test. -#}
+{%- set bound = e.filters | selectattr('param_sample') | list -%}
 {%- set imps = [
   base_package ~ '.common.dto.PageResponse',
   base_package ~ '.common.dto.PaginationMeta',
@@ -26,6 +28,7 @@
   'org.springframework.test.context.bean.override.mockito.MockitoBean',
   'org.springframework.test.web.servlet.MockMvc',
   'tools.jackson.databind.ObjectMapper'] -%}
+{%- if bound %}{% set _ = imps.extend([base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Filter', 'org.mockito.ArgumentCaptor']) %}{% endif -%}
 {%- if many %}{% set _ = imps.append('java.util.Set') %}{% endif -%}
 {%- for f in e.fields -%}
 {%- for i in f.imports %}{% set _ = imps.append(i) %}{% endfor -%}
@@ -49,9 +52,15 @@
 {%- endmacro -%}
 package {{ base_package }}.{{ e.package }}.controller;
 
+{% if bound -%}
+import static org.assertj.core.api.Assertions.assertThat;
+{% endif -%}
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+{% if bound -%}
+import static org.mockito.Mockito.verify;
+{% endif -%}
 {% if can_be_invalid -%}
 import static org.mockito.Mockito.verifyNoInteractions;
 {% endif -%}
@@ -139,7 +148,7 @@ class {{ e.name }}ControllerTest {
             .data(List.of(response(id)))
             .pagination(PaginationMeta.builder().page(0).limit(20).total(1).totalPages(1).build())
             .build();
-    when(service.findAll(0, 20, "createdAt", "DESC")).thenReturn(page);
+    when(service.findAll(eq(0), eq(20), eq("createdAt"), eq("DESC"), any())).thenReturn(page);
 
     mockMvc
         .perform(get(BASE_URL))
@@ -147,6 +156,43 @@ class {{ e.name }}ControllerTest {
         .andExpect(jsonPath("$.success").value(true))
         .andExpect(jsonPath("$.data.data[0].id").value(id.toString()));
   }
+{%- if bound %}
+
+  @Test
+  void findAll_bindsFilterParametersFromTheQueryString() throws Exception {
+    when(service.findAll(eq(0), eq(20), eq("createdAt"), eq("DESC"), any()))
+        .thenReturn(PageResponse.<{{ e.name }}Response>builder().build());
+    var request = get(BASE_URL);
+{%- for p in bound %}
+    request.param("{{ p.name }}", "{{ p.param_sample }}");
+{%- endfor %}
+
+    mockMvc.perform(request).andExpect(status().isOk());
+
+    var captor = ArgumentCaptor.forClass({{ e.name }}Filter.class);
+    verify(service).findAll(eq(0), eq(20), eq("createdAt"), eq("DESC"), captor.capture());
+    {{ e.name }}Filter filter = captor.getValue();
+{%- for p in bound %}
+{%- set one = '    assertThat(filter.' ~ p.name ~ '()).isEqualTo(' ~ p.sample_value ~ ');' %}
+{%- if one | length <= 100 %}
+{{ one }}
+{%- else %}
+    assertThat(filter.{{ p.name }}())
+        .isEqualTo({{ p.sample_value }});
+{%- endif %}
+{%- endfor %}
+  }
+{%- set typed = bound | rejectattr('java_type', 'equalto', 'String') | list %}
+{%- if typed %}
+
+  @Test
+  void findAll_withUnparsableFilterValue_returns400() throws Exception {
+    mockMvc
+        .perform(get(BASE_URL).param("{{ typed[0].name }}", "not-a-value"))
+        .andExpect(status().isBadRequest());
+  }
+{%- endif %}
+{%- endif %}
 
   @Test
   void update_whenValid_returns200WithUpdatedEnvelope() throws Exception {

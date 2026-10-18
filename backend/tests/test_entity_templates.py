@@ -16,6 +16,7 @@ from core.templates import (
     ENTITY_DIR,
     JOIN_DIR,
     SHARED_DIR,
+    SEARCH_PACKAGE_TEMPLATE,
     TEMPLATES_DIR,
     discover_templates,
     dynamic_excludes,
@@ -291,15 +292,58 @@ def test_entity_imports_only_what_it_uses(project):
 
 def test_repository_uses_soft_delete_finders_and_unique_exists_checks(project):
     text = main_file(project, "Customer", "repository", "CustomerRepository")
-    assert "public interface CustomerRepository extends JpaRepository<Customer, UUID> {" in text
+    assert "extends JpaRepository<Customer, UUID>, JpaSpecificationExecutor<Customer> {" in text
     assert "Optional<Customer> findByIdAndDeletedAtIsNull(UUID id);" in text
-    assert "Page<Customer> findAllByDeletedAtIsNull(Pageable pageable);" in text
     assert "boolean existsByEmailAndDeletedAtIsNull(String email);" in text
     assert "existsByName" not in text  # name is not unique
     product = main_file(project, "Product", "repository", "ProductRepository")
     assert "boolean existsBySkuAndDeletedAtIsNull(String sku);" in product
     item = main_file(project, "OrderItem", "repository", "OrderItemRepository")
     assert "existsBy" not in item
+
+
+def test_repository_lists_through_specifications_not_a_page_finder(project):
+    text = main_file(project, "Customer", "repository", "CustomerRepository")
+    assert "JpaSpecificationExecutor<Customer>" in text
+    assert "findAllByDeletedAtIsNull" not in text
+
+
+def test_filter_record_has_one_component_per_filterable_field_and_to_one_relation(project):
+    customer = main_file(project, "Customer", "dto", "CustomerFilter")
+    for component in (
+        "String name,",
+        "Boolean active,",
+        "@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate joinedOnFrom,",
+        "@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate joinedOnTo,",
+        "CustomerTier tier,",
+        "UUID favoriteProductId) {",
+    ):
+        assert component in customer
+    assert 'SearchSpecifications.idEquals("favoriteProduct", favoriteProductId)' in customer
+    order = main_file(project, "Order", "dto", "OrderFilter")
+    assert "BigDecimal totalFrom," in order and "BigDecimal totalTo," in order
+    assert "Instant placedAtFrom," in order  # Instant binds ISO-8601 without an annotation
+    assert 'SearchSpecifications.atMost("total", totalTo)' in order
+    assert "@DateTimeFormat" not in order
+
+
+def test_filter_record_skips_many_to_many_relations(project):
+    product = main_file(project, "Product", "dto", "ProductFilter")
+    assert "categor" not in product
+
+
+def test_filter_component_clashing_with_a_list_parameter_gets_a_prefix():
+    from core.entity_rules import resolve_model
+    from core.entity_spec import EntitySpec, FieldSpec
+
+    entity = EntitySpec(
+        name="Shirt",
+        table=None,
+        fields={"size": FieldSpec(type="string"), "page": FieldSpec(type="int")},
+        relations={},
+    )
+    names = [p.name for p in resolve_model({"Shirt": entity}).entities[0].filters]
+    assert names == ["filterSize", "pageFrom", "pageTo"]
 
 
 def test_repository_checks_one_to_one_target_is_free(project):
@@ -391,7 +435,8 @@ def test_service_interface_declares_crud_operations(project):
     text = main_file(project, "Customer", "service", "CustomerService")
     for signature in (
         "CustomerResponse findById(UUID id);",
-        "PageResponse<CustomerResponse> findAll(int page, int size, String sortBy, String sortDirection);",
+        "PageResponse<CustomerResponse> findAll(",
+        "String sortDirection, CustomerFilter filter);",
         "CustomerResponse create(CreateCustomerRequest request);",
         "CustomerResponse update(UUID id, UpdateCustomerRequest request);",
         "void delete(UUID id);",
@@ -754,4 +799,4 @@ def test_constraints_template_name_matches_the_dynamic_exclude_constant():
     assert CONSTRAINTS_CHANGELOG_TEMPLATE not in dynamic_excludes(
         {"has_entities": True, "constraints_changelog_file": "009-add-constraints.sql"}
     )
-    assert dynamic_excludes({"has_entities": False}) == ()
+    assert dynamic_excludes({"has_entities": False}) == (SEARCH_PACKAGE_TEMPLATE,)

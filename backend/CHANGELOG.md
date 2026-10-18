@@ -1,5 +1,21 @@
 ## [Unreleased]
 
+- Generated entity list endpoints accept optional filters. Each entity gets a
+  `<Entity>Filter` record (one query parameter per scalar field and to-one
+  relation: case-insensitive `contains` for strings, inclusive `From`/`To`
+  ranges for numbers, dates and instants, exact match for boolean, uuid, enum
+  and relation ids) that `toSpecification()` turns into a JPA `Specification`
+  which always excludes soft-deleted rows. Filter names come only from the
+  model, so a client cannot filter on other columns. Repositories now extend
+  `JpaSpecificationExecutor` and `findAllByDeletedAtIsNull(Pageable)` is gone;
+  `<Entity>Service.findAll` takes the filter as a fifth argument. The shared
+  `common/search/SearchSpecifications` helper is generated only with entities.
+  The `Example` slice is unchanged.
+
+- `common.exception` gains `ForbiddenException` (HTTP 403, `FORBIDDEN`) and
+  `BadRequestException` (HTTP 400, `BAD_REQUEST`), handled by
+  `GlobalExceptionHandler` like the existing exceptions.
+
 - Entity-driven generation, input side: `forge new --from forge.yaml` reads
   project parameters and an `entities` model (fields, relations) from a YAML
   file. Precedence per parameter is explicit CLI flag, then file value, then

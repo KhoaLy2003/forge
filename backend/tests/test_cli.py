@@ -3,6 +3,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 import cli
+from core.templates import SEARCH_PACKAGE_TEMPLATE
 from core.validator import ValidationResult
 
 runner = CliRunner()
@@ -318,7 +319,7 @@ def test_new_passes_entity_dir_and_merges_dynamic_excludes(tmp_path, monkeypatch
     assert not list(project.rglob("ExampleController.java"))
 
 
-def test_new_without_entities_passes_only_template_excludes(tmp_path, monkeypatch):
+def test_new_without_entities_excludes_only_the_search_helpers_on_top_of_the_template(tmp_path, monkeypatch):
     seen = {}
     real_render = cli.render_tree
 
@@ -332,5 +333,6 @@ def test_new_without_entities_passes_only_template_excludes(tmp_path, monkeypatc
     result = _invoke_new(tmp_path, "base-layered")
 
     assert result.exit_code == 0, result.output
-    assert seen["excluded"] == cli.TEMPLATES["base-layered"]
+    # without entities the only dynamic exclude is the search helper package, which only entity filters use
+    assert seen["excluded"] == cli.TEMPLATES["base-layered"] + (SEARCH_PACKAGE_TEMPLATE,)
     assert list((tmp_path / "demo-service").rglob("ExampleController.java"))

@@ -5,9 +5,8 @@
   base_package ~ '.' ~ e.package ~ '.entity.' ~ e.name,
   'java.util.Optional',
   'java.util.UUID',
-  'org.springframework.data.domain.Page',
-  'org.springframework.data.domain.Pageable',
-  'org.springframework.data.jpa.repository.JpaRepository'] -%}
+  'org.springframework.data.jpa.repository.JpaRepository',
+  'org.springframework.data.jpa.repository.JpaSpecificationExecutor'] -%}
 {%- for f in uniques -%}
 {%- for i in f.imports %}{% set _ = imps.append(i) %}{% endfor -%}
 {%- if f.is_enum %}{% set _ = imps.append(base_package ~ '.' ~ f.enum_import_suffix) %}{% endif -%}
@@ -20,9 +19,17 @@ import {{ i }};
 /**
  * Spring Data repository for {@link {{ e.name }}}.
  *
- * <p>Every finder carries {@code AndDeletedAtIsNull} so soft-deleted rows stay hidden.
+ * <p>Every finder carries {@code AndDeletedAtIsNull} so soft-deleted rows stay hidden. Listing goes
+ * through {@link JpaSpecificationExecutor} with {@code {{ e.name }}Filter#toSpecification()}, which
+ * excludes soft-deleted rows itself.
  */
-public interface {{ e.name }}Repository extends JpaRepository<{{ e.name }}, UUID> {
+{% set decl = 'public interface ' ~ e.name ~ 'Repository extends JpaRepository<' ~ e.name ~ ', UUID>, JpaSpecificationExecutor<' ~ e.name ~ '> {' -%}
+{%- if decl | length <= 100 -%}
+{{ decl }}
+{%- else -%}
+public interface {{ e.name }}Repository
+    extends JpaRepository<{{ e.name }}, UUID>, JpaSpecificationExecutor<{{ e.name }}> {
+{%- endif %}
 
   /**
    * Finds a non-deleted {{ e.var_name }} by id.
@@ -31,14 +38,6 @@ public interface {{ e.name }}Repository extends JpaRepository<{{ e.name }}, UUID
    * @return the {{ e.var_name }} if present and not soft-deleted, otherwise empty
    */
   Optional<{{ e.name }}> findByIdAndDeletedAtIsNull(UUID id);
-
-  /**
-   * Lists all non-deleted {{ e.var_name }} rows as a page.
-   *
-   * @param pageable page, size and sort request
-   * @return the requested page
-   */
-  Page<{{ e.name }}> findAllByDeletedAtIsNull(Pageable pageable);
 {%- for f in uniques %}
 
   /**

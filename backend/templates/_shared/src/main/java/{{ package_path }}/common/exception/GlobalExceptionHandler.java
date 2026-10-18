@@ -96,6 +96,47 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Handles {@link ForbiddenException}, thrown when the caller is identified but not allowed to
+   * perform the operation.
+   *
+   * @param ex the thrown exception, whose message is surfaced to the client
+   * @return an HTTP 403 response wrapping {@link ErrorDetails}
+   */
+  @ExceptionHandler(ForbiddenException.class)
+  public ResponseEntity<ApiResponse<ErrorDetails>> handleForbidden(ForbiddenException ex) {
+    logClientError("request.forbidden", "Forbidden", ex);
+    ErrorDetails details =
+        ErrorDetails.builder()
+            .code("FORBIDDEN")
+            .message(ex.getMessage())
+            .timestamp(Instant.now())
+            .build();
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+        .body(ApiResponse.error(ex.getMessage(), details));
+  }
+
+  /**
+   * Handles {@link BadRequestException}, thrown by service code when a request is well-formed but
+   * violates a business rule that Bean Validation cannot express (for example an unsupported sort
+   * field or an inconsistent combination of parameters).
+   *
+   * @param ex the thrown exception, whose message is surfaced to the client
+   * @return an HTTP 400 response wrapping {@link ErrorDetails}
+   */
+  @ExceptionHandler(BadRequestException.class)
+  public ResponseEntity<ApiResponse<ErrorDetails>> handleBadRequest(BadRequestException ex) {
+    logClientError("request.bad_request", "Bad request", ex);
+    ErrorDetails details =
+        ErrorDetails.builder()
+            .code("BAD_REQUEST")
+            .message(ex.getMessage())
+            .timestamp(Instant.now())
+            .build();
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(ApiResponse.error(ex.getMessage(), details));
+  }
+
+  /**
    * Handles {@link ConflictException}, thrown by service code (e.g. {@code ExampleServiceImpl})
    * when a request conflicts with a business rule or existing state before any database constraint
    * is reached.

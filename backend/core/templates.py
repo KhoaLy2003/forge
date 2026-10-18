@@ -17,6 +17,9 @@ CONSTRAINTS_CHANGELOG_TEMPLATE = (
     "src/main/resources/db/changelog/{{ constraints_changelog_file if constraints_changelog_file is defined and constraints_changelog_file else '' }}"
 )
 
+# Generic search helpers (specifications for the generated entity filters); only rendered with entities.
+SEARCH_PACKAGE_TEMPLATE = "src/main/java/{{ package_path }}/common/search/*"
+
 _ENV = jinja2.Environment(undefined=jinja2.StrictUndefined)
 
 
@@ -37,11 +40,11 @@ def discover_templates() -> dict[str, tuple[str, ...]]:
 
 def dynamic_excludes(context: dict) -> tuple[str, ...]:
     """Context-dependent excludes: with entities, the Example slice (and the constraints changelog when there are
-    no deferred FKs); without entities, none."""
+    no deferred FKs); without entities, the search helpers that only the entity filters use."""
     if not context.get("has_entities"):
-        # Nothing to add: without entities the constraints file's name renders empty and the renderer
-        # skips it, so existing callers that pass no dynamic excludes behave identically.
-        return ()
+        # The search helpers only serve the generated <Entity>Filter records; without entities nothing
+        # uses them (and the coverage gate would count them as untested code).
+        return (SEARCH_PACKAGE_TEMPLATE,)
     excludes: tuple[str, ...] = (
         "src/main/java/{{ package_path }}/example/*",
         "src/test/java/{{ package_path }}/example/*",

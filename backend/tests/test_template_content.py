@@ -34,6 +34,8 @@ EXPECTED_TEMPLATE_FILES = [
     "src/main/java/{{ package_path }}/common/config/SensitiveDataCustomizer.java",
     "src/main/resources/db/changelog/002-create-notifications.sql",
     "src/main/java/{{ package_path }}/common/exception/UnauthorizedException.java",
+    "src/main/java/{{ package_path }}/common/exception/ForbiddenException.java",
+    "src/main/java/{{ package_path }}/common/exception/BadRequestException.java",
     "src/main/java/{{ package_path }}/notification/Audience.java",
     "src/main/java/{{ package_path }}/notification/ChannelSender.java",
     "src/main/java/{{ package_path }}/notification/config/MailConfig.java",
