@@ -104,6 +104,30 @@ def resolve_tree(
     return sorted(rel for _, rel, _ in _plan(template_dir, context, excluded, entities_dir, join_dir))
 
 
+def _render_entry(template_file: Path, ctx: dict) -> str | bytes:
+    """Render one template file's contents; binary files are returned unchanged as bytes."""
+    try:
+        content = template_file.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return template_file.read_bytes()
+    return _ENV.from_string(content).render(**ctx)
+
+
+def render_files(
+    template_dir: Path,
+    context: dict,
+    excluded: tuple[str, ...] = (),
+    entities_dir: Path | None = None,
+    join_dir: Path | None = None,
+) -> dict[Path, str | None]:
+    """Render the whole output in memory: relative path -> text, or None for binary files. Sorted by path."""
+    rendered: dict[Path, str | None] = {}
+    for template_file, rel_path, ctx in _plan(template_dir, context, excluded, entities_dir, join_dir):
+        entry = _render_entry(template_file, ctx)
+        rendered[rel_path] = None if isinstance(entry, bytes) else entry
+    return dict(sorted(rendered.items()))
+
+
 def render_tree(
     template_dir: Path,
     target_dir: Path,
@@ -117,16 +141,13 @@ def render_tree(
     if target_dir.exists():
         raise TargetExistsError(f"Target directory already exists: {target_dir}")
 
-    env = _ENV
     for template_file, rel_path, ctx in _plan(
         template_dir, context, excluded, entities_dir, join_dir
     ):
         out_path = target_dir / rel_path
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            content = template_file.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            out_path.write_bytes(template_file.read_bytes())
-            continue
-        rendered = env.from_string(content).render(**ctx)
-        out_path.write_text(rendered, encoding="utf-8")
+        rendered = _render_entry(template_file, ctx)
+        if isinstance(rendered, bytes):
+            out_path.write_bytes(rendered)
+        else:
+            out_path.write_text(rendered, encoding="utf-8")

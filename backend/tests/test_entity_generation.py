@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from cli import EXPECTED_STRUCTURAL_PATHS, expected_structural_paths
+from core.generation import EXPECTED_STRUCTURAL_PATHS, expected_structural_paths
 from core.config_schema import ForgeConfig
 from core.entity_spec import load_forge_yaml
 from core.renderer import render_tree

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forge</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Forge</h1>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="model" role="tab">Model</button>
+      <button class="tab" data-tab="preview" role="tab" id="tab-preview">Preview</button>
+      <button class="tab" data-tab="generate" role="tab">Generate</button>
+    </nav>
+    <div class="spacer"></div>
+    <label class="btn" for="import-file">Import forge.yaml</label>
+    <input id="import-file" type="file" accept=".yaml,.yml" hidden>
+    <button id="export-btn" class="btn">Export forge.yaml</button>
+  </header>
+
+  <main>
+    <section id="view-model" class="view">
+      <div class="col-left">
+        <section class="panel" id="project-panel">
+          <h2>Project</h2>
+          <div class="form-grid">
+            <label>Project name <input id="p-project_name" data-key="project_name" placeholder="my-service"></label>
+            <label>Target path <input id="p-target_path" data-key="target_path"></label>
+            <label>Group id <input id="p-group_id" data-key="group_id" placeholder="com.example"></label>
+            <label>Artifact id <input id="p-artifact_id" data-key="artifact_id" placeholder="my-service"></label>
+            <label>Template <select id="p-template" data-key="template"></select></label>
+          </div>
+        </section>
+
+        <section class="panel" id="entities-panel">
+          <div class="panel-head">
+            <h2>Entities</h2>
+            <button id="add-entity" class="btn">+ Add entity</button>
+          </div>
+          <p id="entities-disabled" class="muted" hidden>The minimal template has no entity support.</p>
+          <div id="entities"></div>
+        </section>
+      </div>
+
+      <div class="col-right">
+        <section class="panel" id="validation-panel">
+          <h2>Validation</h2>
+          <div id="validation" aria-live="polite"></div>
+        </section>
+        <section class="panel">
+          <h2>Graph</h2>
+          <div id="graph"></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="view-preview" class="view" hidden>
+      <div class="preview-layout">
+        <aside class="panel">
+          <input id="file-filter" placeholder="Filter files" aria-label="Filter files">
+          <ul id="file-list"></ul>
+        </aside>
+        <section class="panel">
+          <h2 id="file-title">Select a file</h2>
+          <pre id="file-content"></pre>
+        </section>
+      </div>
+      <p id="preview-error" class="error-text"></p>
+    </section>
+
+    <section id="view-generate" class="view" hidden>
+      <section class="panel">
+        <h2>Generate</h2>
+        <label class="inline"><input type="checkbox" id="run-compile"> Run mvn compile check (slow, needs Maven)</label>
+        <p><button id="generate-btn" class="btn primary">Generate project</button></p>
+        <p id="generate-status" class="muted"></p>
+        <div id="generate-result"></div>
+      </section>
+    </section>
+  </main>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>
