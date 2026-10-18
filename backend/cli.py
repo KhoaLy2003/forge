@@ -91,6 +91,8 @@ def expected_structural_paths(context: dict) -> list[Path]:
         common / "exception" / "ErrorDetails.java",
         common / "exception" / "ValidationErrorDetails.java",
         common / "exception" / "UnauthorizedException.java",
+        common / "exception" / "ForbiddenException.java",
+        common / "exception" / "BadRequestException.java",
         notification / "Audience.java",
         notification / "ChannelSender.java",
         notification / "config" / "MailConfig.java",
@@ -167,6 +169,8 @@ def expected_structural_paths(context: dict) -> list[Path]:
     ]
 
     changelog = Path("src/main/resources/db/changelog")
+    if context.get("has_entities"):
+        paths.append(common / "search" / "SearchSpecifications.java")
     for entity in context.get("entities", []):
         main_root = java_root / entity.package
         test_package = test_root / entity.package
@@ -176,6 +180,7 @@ def expected_structural_paths(context: dict) -> list[Path]:
             main_root / "repository" / f"{name}Repository.java",
             main_root / "dto" / f"Create{name}Request.java",
             main_root / "dto" / f"Update{name}Request.java",
+            main_root / "dto" / f"{name}Filter.java",
             main_root / "dto" / f"{name}Response.java",
             main_root / "mapper" / f"{name}Mapper.java",
             main_root / "service" / f"{name}Service.java",

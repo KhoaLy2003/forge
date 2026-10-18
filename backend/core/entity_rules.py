@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from core.config_schema import JAVA_RESERVED_WORDS
 from core.entity_model import (
     EnumDescriptor,
+    FilterParam,
     ForeignKey,
     JoinTable,
     Model,
@@ -47,7 +48,7 @@ __all__ = [
     "SQL_RESERVED_WORDS", "snake_case", "kebab_case", "pluralize", "singularize", "derive_table_name",
     "validate_names", "validate_relations", "topological_order", "resolve_model",
     "Model", "ResolvedEntity", "ResolvedField", "ResolvedRelation", "ResolvedInverse", "JoinTable",
-    "ForeignKey", "EnumDescriptor",
+    "ForeignKey", "EnumDescriptor", "FilterParam",
 ]
 
 CHANGELOG_START = 3
@@ -592,6 +593,74 @@ def _resolve_field(e: EntitySpec, table: str, fname: str, f) -> ResolvedField:
     )
 
 
+# Query parameters already taken by the list endpoint; a filter that would reuse one gets a ``filter`` prefix.
+_LIST_PARAMS = frozenset({"page", "size", "sortBy", "sortDirection"})
+_ISO_DATE = "@DateTimeFormat(iso = DateTimeFormat.ISO.DATE)"
+_DATE_FORMAT_IMPORT = "org.springframework.format.annotation.DateTimeFormat"
+_RANGE_TYPES = frozenset({"int", "long", "decimal", "date", "instant"})
+
+
+def _param_sample(f: ResolvedField) -> str | None:
+    """A query-string value that binds to the field's type, or None when no fixed value exists (uuid)."""
+    if f.type == "uuid":
+        return None
+    if f.is_enum:
+        return f.sample_value.split(".", 1)[1]
+    if f.type == "decimal":
+        return f.sample_value.split('"')[1]
+    if f.type == "instant":
+        return f.sample_value.split('"')[1]
+    if f.type == "date":
+        year, month, day = (int(p) for p in re.findall(r"\d+", f.sample_value))
+        return f"{year}-{month:02d}-{day:02d}"
+    return f.sample_value.strip('"').rstrip("L")
+
+
+def _filter_params(fields: list[ResolvedField], relations: list[ResolvedRelation]) -> list[FilterParam]:
+    """Optional list-endpoint filters derived from an entity's scalar fields and to-one relations.
+
+    string -> case-insensitive ``contains``; int/long/decimal/date/instant -> inclusive ``From``/``To`` range;
+    boolean/uuid/enum -> exact match; many-to-one/one-to-one -> related id.  Many-to-many is not filterable.
+    A name that would repeat an earlier parameter is skipped.
+    """
+    params: list[FilterParam] = []
+    taken: set[str] = set()
+
+    def add(param: FilterParam) -> None:
+        name = param.name
+        if name in _LIST_PARAMS:
+            name = "filter" + upper_first(name)
+        if name in taken:
+            return
+        taken.add(name)
+        param.name = name
+        params.append(param)
+
+    for f in fields:
+        common = dict(
+            attribute=f.name, imports=f.imports, getter=f.getter, param_sample=_param_sample(f),
+            sample_value=f.sample_value,
+            distinct=f.type == "uuid" or f.sample_value != f.sample_value_alt,
+            import_suffix=f.enum_import_suffix,
+        )
+        if f.type == "string":
+            add(FilterParam(name=f.name, java_type="String", op="contains", **common))
+        elif f.type in _RANGE_TYPES:
+            annotation = _ISO_DATE if f.type == "date" else None
+            annotation_import = _DATE_FORMAT_IMPORT if annotation else None
+            add(FilterParam(name=f.name + "From", java_type=f.java_type, op="atLeast", annotation=annotation,
+                            annotation_import=annotation_import, **common))
+            add(FilterParam(name=f.name + "To", java_type=f.java_type, op="atMost", annotation=annotation,
+                            annotation_import=annotation_import, **common))
+        else:
+            add(FilterParam(name=f.name, java_type=f.java_type, op="equal", **common))
+    for r in relations:
+        if not r.is_collection:
+            add(FilterParam(name=r.id_field, java_type="UUID", op="idEquals", attribute=r.name,
+                            imports=("java.util.UUID",)))
+    return params
+
+
 def _join_table_name(m: _ManyToMany, tables: dict[str, str], taken: set[str]) -> str:
     if m.owner == m.target:
         name = _ident(tables[m.owner], snake_case(m.name))
@@ -704,6 +773,7 @@ def resolve_model(entities: dict[str, EntitySpec]) -> Model:
             enums=enums,
             foreign_keys=fks,
             imports=tuple(sorted(imports)),
+            filters=_filter_params(fields, relations),
         )
 
     ordered = [resolved[n] for n in order]

@@ -121,6 +121,16 @@ class GlobalExceptionHandlerTest {
       throw new UnauthorizedException("token for person@example.org has expired");
     }
 
+    @GetMapping("/probe/forbidden")
+    String forbidden() {
+      throw new ForbiddenException("person@example.org may not do this");
+    }
+
+    @GetMapping("/probe/bad-request")
+    String badRequest() {
+      throw new BadRequestException("person@example.org is not a valid sort field");
+    }
+
     @GetMapping("/probe/not-found-pii")
     String notFoundPii() {
       throw new ResourceNotFoundException("no account for person@example.org");
@@ -236,6 +246,32 @@ class GlobalExceptionHandlerTest {
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.success").value(false))
         .andExpect(jsonPath("$.data.code").value("UNAUTHORIZED"));
+  }
+
+  @Test
+  void forbidden_returns403WithTheStandardEnvelopeAndLogsNoMessage() throws Exception {
+    mockMvc
+        .perform(get("/probe/forbidden"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.data.code").value("FORBIDDEN"));
+
+    assertThat(logs.list).hasSize(1);
+    assertThat(fields(logs.list.get(0))).containsEntry("event.name", "request.forbidden");
+    assertThat(everythingLogged()).doesNotContain("person@example.org");
+  }
+
+  @Test
+  void badRequest_returns400WithTheStandardEnvelopeAndLogsNoMessage() throws Exception {
+    mockMvc
+        .perform(get("/probe/bad-request"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.data.code").value("BAD_REQUEST"));
+
+    assertThat(logs.list).hasSize(1);
+    assertThat(fields(logs.list.get(0))).containsEntry("event.name", "request.bad_request");
+    assertThat(everythingLogged()).doesNotContain("person@example.org");
   }
 
   @Test

@@ -40,6 +40,7 @@
   base_package ~ '.common.exception.ResourceNotFoundException',
   base_package ~ '.common.util.PaginationUtils',
   base_package ~ '.' ~ e.package ~ '.dto.Create' ~ e.name ~ 'Request',
+  base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Filter',
   base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Response',
   base_package ~ '.' ~ e.package ~ '.dto.Update' ~ e.name ~ 'Request',
   base_package ~ '.' ~ e.package ~ '.entity.' ~ e.name,
@@ -97,9 +98,15 @@ public class {{ e.name }}ServiceImpl implements {{ e.name }}Service {
   /** {@inheritDoc} */
   @Override
   @Transactional(readOnly = true)
-{{ wrap(2, 'public PageResponse<' ~ e.name ~ 'Response> findAll(', ['int page', 'int size', 'String sortBy', 'String sortDirection'], ') {') }}
+{{ wrap(2, 'public PageResponse<' ~ e.name ~ 'Response> findAll(', ['int page', 'int size', 'String sortBy', 'String sortDirection', e.name ~ 'Filter filter'], ') {') }}
     Pageable pageable = PaginationUtils.createPageable(page, size, sortBy, sortDirection);
-    Page<{{ e.name }}> result = repository.findAllByDeletedAtIsNull(pageable);
+{%- set find_all = 'repository.findAll(filter.toSpecification(), pageable);' %}
+{%- if ('    Page<' ~ e.name ~ '> result = ' ~ find_all) | length <= 100 %}
+    Page<{{ e.name }}> result = {{ find_all }}
+{%- else %}
+    Page<{{ e.name }}> result =
+        {{ find_all }}
+{%- endif %}
     return PaginationUtils.toPageResponse(result, result.map(mapper::toResponse).getContent());
   }
 

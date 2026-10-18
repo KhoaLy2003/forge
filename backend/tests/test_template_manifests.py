@@ -29,11 +29,11 @@ def test_filter_excluded_paths_renders_pattern_placeholders_before_matching():
     assert result == [Path("keep.txt")]
 
 
-def test_dynamic_excludes_empty_without_entities():
-    from core.templates import dynamic_excludes
+def test_dynamic_excludes_without_entities_only_drop_the_search_helpers():
+    from core.templates import SEARCH_PACKAGE_TEMPLATE, dynamic_excludes
 
-    assert dynamic_excludes({}) == ()
-    assert dynamic_excludes({"has_entities": False}) == ()
+    assert dynamic_excludes({}) == (SEARCH_PACKAGE_TEMPLATE,)
+    assert dynamic_excludes({"has_entities": False}) == (SEARCH_PACKAGE_TEMPLATE,)
 
 
 def test_dynamic_excludes_with_entities_remove_exactly_the_example_slice():

@@ -43,6 +43,7 @@
 {%- set imps = [
   base_package ~ '.common.config.JpaAuditingConfig',
   base_package ~ '.' ~ e.package ~ '.entity.' ~ e.name,
+  base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Filter',
   'org.junit.jupiter.api.Test',
   'org.springframework.beans.factory.annotation.Autowired',
   'org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest',
@@ -115,17 +116,80 @@ class {{ e.name }}RepositoryTest {
   }
 
   @Test
-  void findAllByDeletedAtIsNull_returnsOnlyActiveRowsPaged() {
+  void search_withEmptyFilter_returnsOnlyActiveRowsPaged() {
     {{ e.name }} active = repository.save(newEntity(false));
     {{ e.name }} deleted = newEntity(true);
     deleted.softDelete();
     {{ e.name }} savedDeleted = repository.save(deleted);
 
-    Page<{{ e.name }}> page = repository.findAllByDeletedAtIsNull(PageRequest.of(0, 10));
+    Page<{{ e.name }}> page = search({{ e.name }}Filter.builder().build());
 
 {{ chain('assertThat(page.getContent())', ['.extracting(' ~ e.name ~ '::getId)', '.contains(active.getId())']) }}
 {{ chain('assertThat(page.getContent())', ['.extracting(' ~ e.name ~ '::getId)', '.doesNotContain(savedDeleted.getId())']) }}
   }
+{#- `Filter filter = Filter.builder().<setter>(<value>).build();`, wrapped like google-java-format. -#}
+{%- macro filter_decl(setter, value) -%}
+{%- set cls = e.name ~ 'Filter' -%}
+{%- set call = setter ~ '(' ~ value ~ ')' -%}
+{%- set one = '    ' ~ cls ~ ' filter = ' ~ cls ~ '.builder().' ~ call ~ '.build();' -%}
+{%- if one | length <= 100 -%}
+{{ one }}
+{%- elif ('        ' ~ cls ~ '.builder().' ~ call ~ '.build();') | length <= 100 -%}
+{{ '    ' ~ cls ~ ' filter =' }}
+{{ '        ' ~ cls ~ '.builder().' ~ call ~ '.build();' }}
+{%- else -%}
+{{ '    ' ~ cls ~ ' filter =' }}
+{{ '        ' ~ cls ~ '.builder()' }}
+{{ '            .' ~ call }}
+{{ '            .build();' }}
+{%- endif -%}
+{%- endmacro -%}
+{%- set distinct_filters = e.filters | selectattr('getter') | selectattr('distinct') | list -%}
+{%- for p in distinct_filters %}
+{%- set cap = p.name[:1] | upper ~ p.name[1:] %}
+{%- if p.op == 'atLeast' %}{% set hit, miss = 'second', 'first' %}{% else %}{% set hit, miss = 'first', 'second' %}{% endif %}
+
+  @Test
+  void search_by{{ cap }}_returnsOnlyMatchingRows() {
+    {{ e.name }} first = repository.save(newEntity(false));
+    {{ e.name }} second = repository.save(newEntity(true));
+{{ filter_decl(p.name, hit ~ '.' ~ p.getter ~ '()') }}
+
+    assertOnly({{ hit }}, {{ miss }}, filter);
+  }
+{%- endfor %}
+{%- set text = e.filters | selectattr('op', 'equalto', 'contains') | list %}
+{%- if text %}
+{%- set text_cap = text[0].name[:1] | upper ~ text[0].name[1:] %}
+
+  @Test
+  void search_by{{ text_cap }}_treatsWildcardsLiterally() {
+    repository.save(newEntity(false));
+{{ filter_decl(text[0].name, '"%"') }}
+
+    assertThat(search(filter).getContent()).isEmpty();
+  }
+{%- endif %}
+
+  private Page<{{ e.name }}> search({{ e.name }}Filter filter) {
+    return repository.findAll(filter.toSpecification(), PageRequest.of(0, 10));
+  }
+{%- if distinct_filters %}
+{%- set sig = '  private void assertOnly(' ~ e.name ~ ' hit, ' ~ e.name ~ ' miss, ' ~ e.name ~ 'Filter filter) {' %}
+{%- if sig | length <= 100 %}
+
+{{ sig }}
+{%- else %}
+
+  private void assertOnly(
+      {{ e.name }} hit, {{ e.name }} miss, {{ e.name }}Filter filter) {
+{%- endif %}
+    assertThat(search(filter).getContent())
+        .extracting({{ e.name }}::getId)
+        .contains(hit.getId())
+        .doesNotContain(miss.getId());
+  }
+{%- endif %}
 
   @Test
   void save_populatesAuditAndVersionFields() {

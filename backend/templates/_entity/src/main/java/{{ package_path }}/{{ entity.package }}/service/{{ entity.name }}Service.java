@@ -21,6 +21,7 @@
   base_package ~ '.common.dto.PageResponse',
   base_package ~ '.common.exception.ResourceNotFoundException',
   base_package ~ '.' ~ e.package ~ '.dto.Create' ~ e.name ~ 'Request',
+  base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Filter',
   base_package ~ '.' ~ e.package ~ '.dto.' ~ e.name ~ 'Response',
   base_package ~ '.' ~ e.package ~ '.dto.Update' ~ e.name ~ 'Request',
   'java.util.UUID'] -%}
@@ -53,9 +54,10 @@ public interface {{ e.name }}Service {
    * @param size page size
    * @param sortBy property to sort by
    * @param sortDirection {@code ASC} or {@code DESC}
+   * @param filter optional field filters; a filter left {@code null} is ignored
    * @return the requested page
    */
-{{ wrap(2, 'PageResponse<' ~ e.name ~ 'Response> findAll(', ['int page', 'int size', 'String sortBy', 'String sortDirection'], ');') }}
+{{ wrap(2, 'PageResponse<' ~ e.name ~ 'Response> findAll(', ['int page', 'int size', 'String sortBy', 'String sortDirection', e.name ~ 'Filter filter'], ');') }}
 
   /**
    * Creates a new {{ e.var_name }}.
